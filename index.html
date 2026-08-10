@@ -4,98 +4,168 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ecossistema Ponto do Açaí — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
-  :root { color-scheme: light; }
+  :root {
+    color-scheme: light;
+    --purple: #6d2fa3;
+    --purple-dark: #4a1d75;
+    --purple-light: #f4eefa;
+    --accent: #ff8a3d;
+    --green: #1c9a4b;
+    --red: #d24b3f;
+    --bg: #f6f4f9;
+    --ink: #241a33;
+    --muted: #8a7f9a;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #f7f5f2;
-    color: #2b2320;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
   }
   header {
-    background: linear-gradient(135deg, #5b2a86, #7e3fb0);
+    background: radial-gradient(circle at 15% 20%, #8a3fc9 0%, transparent 45%), linear-gradient(135deg, #4a1d75, #6d2fa3 55%, #b0489e);
     color: white;
-    padding: 24px 28px;
+    padding: 30px 32px 26px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
+    gap: 14px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  header p { margin: 0; opacity: 0.82; font-size: 13px; }
+  #refreshBtn {
+    background: rgba(255,255,255,0.14);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  #refreshBtn:hover { background: rgba(255,255,255,0.26); }
+
+  .hero-kpis {
+    max-width: 1200px;
+    margin: 22px auto 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px;
   }
-  header h1 { margin: 0 0 4px; font-size: 20px; }
-  header p { margin: 0; opacity: 0.85; font-size: 13px; }
-  #refreshBtn {
-    background: rgba(255,255,255,0.15);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.4);
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    cursor: pointer;
+  .hero-kpi {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 14px;
+    padding: 14px 16px;
+    backdrop-filter: blur(6px);
   }
-  #refreshBtn:hover { background: rgba(255,255,255,0.25); }
+  .hero-kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.75; font-weight: 600; }
+  .hero-kpi .num { font-size: 22px; font-weight: 800; margin-top: 4px; }
+
   nav.tabs {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 14px 20px 0;
+    padding: 16px 20px 0;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding-top: 14px;
+    padding-bottom: 10px;
   }
   nav.tabs button {
     background: white;
-    border: 1px solid #e6ddd6;
-    color: #5b2a86;
-    border-radius: 20px;
-    padding: 7px 14px;
+    border: 1px solid #e8e0f0;
+    color: var(--purple);
+    border-radius: 22px;
+    padding: 8px 16px;
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.15s ease;
   }
-  nav.tabs button.active { background: #5b2a86; color: white; border-color: #5b2a86; }
-  main { max-width: 1100px; margin: 0 auto; padding: 16px 20px 60px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  nav.tabs button:hover { border-color: var(--purple); }
+  nav.tabs button.active { background: var(--purple); color: white; border-color: var(--purple); box-shadow: 0 4px 12px rgba(109,47,163,0.3); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 8px 20px 70px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 26px; }
   .grid.small { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .grid.two { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+
   .card {
     background: white;
-    border-radius: 12px;
-    padding: 16px 18px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    border: 1px solid #eee;
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(74,29,117,0.06);
+    border: 1px solid #f0eaf7;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .card h3 { margin: 0 0 6px; font-size: 12px; color: #8a7f78; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-  .card .value { font-size: 24px; font-weight: 700; color: #4a1d75; }
-  .card .value.neg { color: #b8433a; }
-  .card .value.pos { color: #1c7a34; }
-  .card .sub { font-size: 12px; color: #a0958d; margin-top: 4px; }
-  section { margin-bottom: 30px; }
-  section h2 { font-size: 15px; color: #4a1d75; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 14px; }
-  section h2 .period { font-size: 11px; color: #a0958d; font-weight: 400; float: right; }
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-  th, td { text-align: left; padding: 9px 13px; font-size: 13px; border-bottom: 1px solid #f0ece8; }
-  th { background: #f4eefa; color: #5b2a86; font-weight: 600; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(74,29,117,0.1); }
+  .card h3 { margin: 0 0 6px; font-size: 11.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card .value { font-size: 25px; font-weight: 800; color: var(--purple-dark); letter-spacing: -0.01em; }
+  .card .value.neg { color: var(--red); }
+  .card .value.pos { color: var(--green); }
+  .card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  section { margin-bottom: 32px; }
+  section h2 { font-size: 15px; color: var(--purple-dark); font-weight: 800; padding-bottom: 10px; margin-bottom: 16px; border-bottom: 2px solid #ece3f7; display: flex; align-items: center; gap: 8px; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(74,29,117,0.06); border: 1px solid #f0eaf7; }
+  th, td { text-align: left; padding: 11px 15px; font-size: 13px; border-bottom: 1px solid #f4eff9; }
+  th { background: var(--purple-light); color: var(--purple); font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
   tr:last-child td { border-bottom: none; }
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .badge.ativo { background: #e3f5e6; color: #1c7a34; }
-  .badge.em_implantacao { background: #fff3d6; color: #97650a; }
-  .empty { color: #b0a49b; font-style: italic; font-size: 13px; padding: 16px; text-align: center; background: white; border-radius: 10px; border: 1px dashed #ddd; }
-  .chart-wrap { position: relative; height: 260px; background: white; border-radius: 12px; padding: 16px; border: 1px solid #eee; }
-  .footer-note { font-size: 12px; color: #a0958d; text-align: center; margin-top: 40px; }
-  .status-line { font-size: 12px; color: #a0958d; margin-top: 2px; }
-  .tabpanel { display: none; }
+  tbody tr:hover { background: #fbf9fd; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge.ativo { background: #e2f7e9; color: var(--green); }
+  .badge.em_implantacao { background: #fff2d9; color: #a3700c; }
+  .badge.logistica { background: #ffe9d9; color: #b85a1a; }
+
+  .empty { color: #b0a4c2; font-style: italic; font-size: 13px; padding: 20px; text-align: center; background: white; border-radius: 14px; border: 1px dashed #ddd0ec; }
+  .chart-wrap { position: relative; height: 270px; background: white; border-radius: 16px; padding: 18px; border: 1px solid #f0eaf7; box-shadow: 0 2px 10px rgba(74,29,117,0.06); }
+  .chart-wrap.short { height: 230px; }
+
+  .footer-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 46px; }
+  .status-line { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 6px; }
+  .tabpanel { display: none; animation: fadeIn 0.25s ease; }
   .tabpanel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
 <header>
-  <div>
-    <h1>Ecossistema Ponto do Açaí — Parte Alta</h1>
-    <p>Painel ao vivo · dados direto do Supabase</p>
-    <p class="status-line" id="statusLine">Carregando...</p>
+  <div class="header-top">
+    <div>
+      <h1>Ecossistema Ponto do Açaí — Parte Alta</h1>
+      <p>Painel ao vivo · dados direto do Supabase</p>
+      <p class="status-line" id="statusLine">Carregando...</p>
+    </div>
+    <button id="refreshBtn" onclick="loadAll()">Atualizar</button>
   </div>
-  <button id="refreshBtn" onclick="loadAll()">Atualizar</button>
+  <div class="hero-kpis" id="heroKpis">
+    <div class="hero-kpi"><div class="label">Faturamento do mês</div><div class="num" id="kpiFaturamento">—</div></div>
+    <div class="hero-kpi"><div class="label">Pedidos hoje</div><div class="num" id="kpiPedidosHoje">—</div></div>
+    <div class="hero-kpi"><div class="label">Ticket médio (7d)</div><div class="num" id="kpiTicket">—</div></div>
+    <div class="hero-kpi"><div class="label">Nota da loja</div><div class="num" id="kpiNota">—</div></div>
+    <div class="hero-kpi"><div class="label">ROI campanhas</div><div class="num" id="kpiRoi">—</div></div>
+  </div>
 </header>
 
 <nav class="tabs" id="tabs">
@@ -105,6 +175,7 @@
   <button data-tab="cardapio">Cardápio</button>
   <button data-tab="clientes">Clientes</button>
   <button data-tab="marketing">Marketing</button>
+  <button data-tab="logistica">Logística</button>
   <button data-tab="social">Redes sociais</button>
 </nav>
 
@@ -124,11 +195,6 @@
     <section>
       <h2>Vendas recentes</h2>
       <div id="salesTable"><div class="empty">Carregando...</div></div>
-    </section>
-
-    <section>
-      <h2>Funil de cardápio (período mais recente)</h2>
-      <div id="funnelCards" class="grid"></div>
     </section>
 
     <section>
@@ -161,6 +227,10 @@
 
   <div class="tabpanel" id="tab-cardapio">
     <section>
+      <h2>Funil de conversão (últ. 7 dias)</h2>
+      <div class="chart-wrap short"><canvas id="funnelChart"></canvas></div>
+    </section>
+    <section>
       <h2>Itens mais vendidos</h2>
       <div id="topItemsTable"><div class="empty">Carregando...</div></div>
     </section>
@@ -169,7 +239,10 @@
   <div class="tabpanel" id="tab-clientes">
     <section>
       <h2>Segmentação de clientes</h2>
-      <div id="segmentCards" class="grid"></div>
+      <div class="grid two">
+        <div class="chart-wrap short"><canvas id="segmentChart"></canvas></div>
+        <div id="segmentCards" class="grid small"></div>
+      </div>
     </section>
     <section>
       <h2>Clientes (CRM central)</h2>
@@ -183,8 +256,20 @@
       <div id="marketingCards" class="grid"></div>
     </section>
     <section>
+      <h2>ROI por campanha</h2>
+      <div class="chart-wrap"><canvas id="campaignsChart"></canvas></div>
+    </section>
+    <section>
       <h2>Campanhas</h2>
       <div id="campaignsTable"><div class="empty">Carregando...</div></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-logistica">
+    <section>
+      <h2>Entregadores terceirizados</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">A Gami Delivery não é canal de venda — é quem faz as entregas terceirizadas dos pedidos.</p>
+      <div id="logisticsCards" class="grid"></div>
     </section>
   </div>
 
@@ -201,7 +286,7 @@
 <script>
 const SUPABASE_URL = 'https://vzwzgbxgkgucqmpkfwki.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_IsFUC4bbF7-xK5hK5Wyyfw_Q2rFLCVa';
-let revenueChart = null;
+let revenueChart = null, funnelChart = null, segmentChart = null, campaignsChart = null;
 
 document.getElementById('tabs').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-tab]');
@@ -232,7 +317,6 @@ function fmtDate(d) {
   if (!d) return '—';
   return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
 }
-
 function badgeClass(status) {
   if (status === 'ativo') return 'ativo';
   if (status === 'em_implantacao') return 'em_implantacao';
@@ -240,11 +324,12 @@ function badgeClass(status) {
 }
 
 async function loadChannels() {
-  const rows = await sb('channels?select=id,slug,name,status&order=id.asc');
+  const rows = await sb('channels?select=id,slug,name,status,type&order=id.asc');
+  const vendaRows = rows.filter(r => (r.type || 'venda') === 'venda');
   const el = document.getElementById('channelsTable');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Nenhum canal cadastrado.</div>'; return rows; }
+  if (!vendaRows.length) { el.innerHTML = '<div class="empty">Nenhum canal cadastrado.</div>'; return rows; }
   el.innerHTML = `<table><thead><tr><th>Canal</th><th>Slug</th><th>Status</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${r.name}</td><td>${r.slug}</td><td><span class="badge ${badgeClass(r.status)}">${r.status}</span></td></tr>`).join('')}
+    ${vendaRows.map(r => `<tr><td>${r.name}</td><td>${r.slug}</td><td><span class="badge ${badgeClass(r.status)}">${r.status}</span></td></tr>`).join('')}
   </tbody></table>`;
   return rows;
 }
@@ -256,7 +341,7 @@ async function loadRevenue() {
   if (!flat.length) { wrap.innerHTML = '<div class="empty">Sem dados de receita mensal ainda.</div>'; return; }
   const months = [...new Set(flat.map(r => r.month))].sort();
   const channelNames = [...new Set(flat.map(r => r.channel))];
-  const palette = ['#7e3fb0','#e07a3f','#3f9ee0','#4caf50','#e05a5a'];
+  const palette = ['#6d2fa3','#ff8a3d','#3f9ee0','#1c9a4b','#e05a5a'];
   const datasets = channelNames.map((name, i) => ({
     label: name,
     data: months.map(m => {
@@ -264,8 +349,11 @@ async function loadRevenue() {
       return row ? Number(row.total_value) : null;
     }),
     borderColor: palette[i % palette.length],
-    backgroundColor: palette[i % palette.length] + '33',
-    tension: 0.3,
+    backgroundColor: palette[i % palette.length] + '22',
+    tension: 0.35,
+    fill: true,
+    pointRadius: 4,
+    pointBackgroundColor: palette[i % palette.length],
     spanGaps: true
   }));
   const ctx = document.getElementById('revenueChart').getContext('2d');
@@ -273,45 +361,58 @@ async function loadRevenue() {
   revenueChart = new Chart(ctx, {
     type: 'line',
     data: { labels: months.map(m => new Date(m + 'T00:00:00').toLocaleDateString('pt-BR', {month:'short', year:'2-digit'})), datasets },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } }, scales: { y: { grid: { color: '#f0eaf7' } }, x: { grid: { display: false } } } }
   });
 }
 
 async function loadSales() {
   const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,channels(name)&order=period_end.desc&limit=20');
   const el = document.getElementById('salesTable');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem vendas coletadas ainda.</div>'; return; }
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem vendas coletadas ainda.</div>'; return rows; }
   el.innerHTML = `<table><thead><tr><th>Canal</th><th>Período</th><th>Pedidos</th><th>Valor</th><th>Ticket médio</th><th>Novos clientes</th></tr></thead><tbody>
     ${rows.map(r => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td><td>${r.new_customers ?? '—'}</td></tr>`).join('')}
   </tbody></table>`;
+  return rows;
 }
 
 async function loadFunnel() {
   const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,channels(name)&order=period_end.desc&limit=1');
-  const el = document.getElementById('funnelCards');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
+  const wrap = document.getElementById('funnelChart').parentElement;
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
   const r = rows[0];
   const conv = r.visits ? ((r.completed / r.visits) * 100).toFixed(2) : '—';
-  el.innerHTML = `
-    <div class="card"><h3>Canal / período</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div><div class="sub">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
-    <div class="card"><h3>Visitas</h3><div class="value">${r.visits}</div></div>
-    <div class="card"><h3>Visualizações</h3><div class="value">${r.views}</div></div>
-    <div class="card"><h3>Sacola</h3><div class="value">${r.cart}</div></div>
-    <div class="card"><h3>Revisão</h3><div class="value">${r.review}</div></div>
-    <div class="card"><h3>Concluídos</h3><div class="value">${r.completed}</div><div class="sub">conversão ${conv}%</div></div>
-  `;
+  const ctx = document.getElementById('funnelChart').getContext('2d');
+  if (funnelChart) funnelChart.destroy();
+  funnelChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Visitas', 'Visualizações', 'Sacola', 'Revisão', 'Concluídos'],
+      datasets: [{
+        data: [r.visits, r.views, r.cart, r.review, r.completed],
+        backgroundColor: ['#e9d8fb','#d3b3f5','#b787ee','#9b5be6','#6d2fa3'],
+        borderRadius: 8
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: { display: true, text: `${fmtDate(r.period_start)} a ${fmtDate(r.period_end)} · conversão ${conv}%`, color: '#8a7f9a', font: { size: 11 } } },
+      scales: { x: { grid: { color: '#f0eaf7' } }, y: { grid: { display: false } } }
+    }
+  });
 }
 
 async function loadReviews() {
   const rows = await sb('review_snapshots?select=store_rating,store_count,period_days,channels(name)&order=collected_at.desc&limit=1');
   const el = document.getElementById('reviewCards');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem avaliações coletadas ainda.</div>'; return; }
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem avaliações coletadas ainda.</div>'; return rows; }
   const r = rows[0];
   el.innerHTML = `
     <div class="card"><h3>Canal</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div></div>
     <div class="card"><h3>Nota da loja</h3><div class="value">${r.store_rating}</div></div>
     <div class="card"><h3>Avaliações (${r.period_days}d)</h3><div class="value">${r.store_count}</div></div>
   `;
+  return rows;
 }
 
 async function loadSocial() {
@@ -342,7 +443,7 @@ async function loadFinance() {
   if (!rows.length) {
     cardsEl.innerHTML = '<div class="empty">Sem dados financeiros ainda.</div>';
     extraEl.innerHTML = '';
-    return;
+    return rows;
   }
   const r = rows[0];
   const repassePct = r.sales_value ? ((r.net_revenue / r.sales_value) * 100).toFixed(1) : '—';
@@ -359,6 +460,7 @@ async function loadFinance() {
     <div class="card"><h3>A receber</h3><div class="value">${fmtMoney(r.receivable_value)}</div></div>
     <div class="card"><h3>Próximo pagamento</h3><div class="value" style="font-size:16px">${fmtDate(r.next_payment_date)}</div></div>
   `;
+  return rows;
 }
 
 async function loadOperation() {
@@ -400,7 +502,12 @@ async function loadTopItems() {
 async function loadSegments() {
   const rows = await sb('customer_segments?select=*&order=compare_to.desc&limit=1');
   const el = document.getElementById('segmentCards');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem segmentação de clientes ainda.</div>'; return; }
+  const wrap = document.getElementById('segmentChart') ? document.getElementById('segmentChart').parentElement : null;
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty">Sem segmentação de clientes ainda.</div>';
+    if (wrap) wrap.innerHTML = '<div class="empty">Sem dados ainda.</div>';
+    return;
+  }
   const r = rows[0];
   el.innerHTML = `
     <div class="card"><h3>Novos</h3><div class="value pos">${r.novos ?? '—'}</div></div>
@@ -409,6 +516,21 @@ async function loadSegments() {
     <div class="card"><h3>Sumidos</h3><div class="value neg">${r.sumidos ?? '—'}</div></div>
     <div class="card"><h3>Recuperados</h3><div class="value pos">${r.recuperados ?? '—'}</div></div>
   `;
+  const ctx = document.getElementById('segmentChart').getContext('2d');
+  if (segmentChart) segmentChart.destroy();
+  segmentChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Novos', 'Frequentes', 'Em alerta', 'Sumidos', 'Recuperados'],
+      datasets: [{
+        data: [r.novos, r.frequentes, r.em_alerta, r.sumidos, r.recuperados],
+        backgroundColor: ['#1c9a4b','#6d2fa3','#ffb648','#d24b3f','#3f9ee0'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } } } }
+  });
 }
 
 async function loadMarketing() {
@@ -428,16 +550,80 @@ async function loadMarketing() {
 
   const camps = await sb('promotion_campaigns?select=campaign_name,orders,sales_value,invested,roi&order=orders.desc&limit=20');
   const campEl = document.getElementById('campaignsTable');
-  if (!camps.length) { campEl.innerHTML = '<div class="empty">Sem campanhas coletadas ainda.</div>'; return; }
+  const chartWrap = document.getElementById('campaignsChart').parentElement;
+  if (!camps.length) {
+    campEl.innerHTML = '<div class="empty">Sem campanhas coletadas ainda.</div>';
+    chartWrap.innerHTML = '<div class="empty">Sem dados ainda.</div>';
+    return rows;
+  }
   campEl.innerHTML = `<table><thead><tr><th>Campanha</th><th>Pedidos</th><th>Vendas</th><th>Investido</th><th>ROI</th></tr></thead><tbody>
     ${camps.map(c => `<tr><td>${c.campaign_name}</td><td>${c.orders}</td><td>${fmtMoney(c.sales_value)}</td><td>${fmtMoney(c.invested)}</td><td>R$ ${c.roi}/real</td></tr>`).join('')}
   </tbody></table>`;
+
+  const sorted = [...camps].sort((a,b) => b.roi - a.roi);
+  const ctx = document.getElementById('campaignsChart').getContext('2d');
+  if (campaignsChart) campaignsChart.destroy();
+  campaignsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(c => c.campaign_name.length > 28 ? c.campaign_name.slice(0,28) + '…' : c.campaign_name),
+      datasets: [{
+        label: 'ROI (R$ por real investido)',
+        data: sorted.map(c => c.roi),
+        backgroundColor: '#ff8a3d',
+        borderRadius: 8
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: '#f0eaf7' } }, y: { grid: { display: false } } }
+    }
+  });
+  return rows;
+}
+
+async function loadLogistics() {
+  const channels = await sb('channels?select=name,slug,status,type&type=eq.logistica');
+  const rows = await sb('logistics_snapshots?select=*&order=period_end.desc&limit=1');
+  const el = document.getElementById('logisticsCards');
+  const providerName = channels.length ? channels[0].name : 'Gami Delivery';
+  if (!rows.length) {
+    el.innerHTML = `
+      <div class="card"><h3>Provedor</h3><div class="value" style="font-size:16px">${providerName}</div><div class="sub">entregador terceirizado</div></div>
+      <div class="card"><h3>Status</h3><div class="value" style="font-size:16px">Ainda sem dados coletados</div></div>
+    `;
+    return;
+  }
+  const r = rows[0];
+  const divergencia = (r.deliveries_count != null && r.ifood_deliveries_count != null && r.deliveries_count !== r.ifood_deliveries_count);
+  el.innerHTML = `
+    <div class="card"><h3>Provedor</h3><div class="value" style="font-size:16px">${providerName}</div></div>
+    <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
+    <div class="card"><h3>Entregas Gami</h3><div class="value">${r.deliveries_count ?? '—'}</div>${divergencia ? `<div class="sub" style="color:var(--red)">iFood registrou ${r.ifood_deliveries_count}</div>` : ''}</div>
+    <div class="card"><h3>Custo total</h3><div class="value neg">${fmtMoney(r.total_cost)}</div></div>
+    <div class="card"><h3>Custo por entrega</h3><div class="value">${fmtMoney(r.cost_per_delivery)}</div></div>
+  `;
+}
+
+async function loadHeroKpis({ finance, sales, funnel, reviews, marketing }) {
+  document.getElementById('kpiFaturamento').textContent = finance && finance.length ? fmtMoney(finance[0].net_revenue) : '—';
+  const dayRow = sales && sales.find(s => {
+    const start = new Date(s.period_start), end = new Date(s.period_end);
+    return (end - start) <= 86400000 * 1.5;
+  });
+  document.getElementById('kpiPedidosHoje').textContent = dayRow ? dayRow.total_sales : (sales && sales[0] ? sales[0].total_sales : '—');
+  const weekRow = sales && sales.find(s => s !== dayRow) || (sales && sales[0]);
+  document.getElementById('kpiTicket').textContent = weekRow ? fmtMoney(weekRow.avg_ticket) : '—';
+  document.getElementById('kpiNota').textContent = reviews && reviews.length ? reviews[0].store_rating : '—';
+  document.getElementById('kpiRoi').textContent = marketing && marketing.length ? ('R$ ' + marketing[0].roi) : '—';
 }
 
 async function loadAll() {
   document.getElementById('statusLine').textContent = 'Atualizando...';
   try {
-    await Promise.all([
+    const [ , , sales, , reviews, , , finance, , , , , marketing ] = await Promise.all([
       loadChannels(),
       loadRevenue(),
       loadSales(),
@@ -450,8 +636,10 @@ async function loadAll() {
       loadNegotiations(),
       loadTopItems(),
       loadSegments(),
-      loadMarketing()
+      loadMarketing(),
+      loadLogistics()
     ]);
+    await loadHeroKpis({ finance, sales, reviews, marketing });
     document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
   } catch (e) {
     document.getElementById('statusLine').textContent = 'Erro ao atualizar: ' + e.message;
