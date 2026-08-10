@@ -296,7 +296,7 @@ document.getElementById('tabs').addEventListener('click', (e) => {
   btn.classList.add('active');
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
   requestAnimationFrame(() => {
-    [revenueChart, funnelChart, segmentChart, campaignsChart].forEach(c => { if (c) c.resize(); });
+    [revenueChart, funnelChart, segmentChart, campaignsChart].forEach(c => { if (c) { c.resize(); c.update(); } });
   });
 });
 
@@ -392,7 +392,7 @@ async function loadFunnel() {
       labels: ['Visitas', 'Visualizações', 'Sacola', 'Revisão', 'Concluídos'],
       datasets: [{
         data: [r.visits, r.views, r.cart, r.review, r.completed],
-        backgroundColor: ['#e9d8fb','#d3b3f5','#b787ee','#9b5be6','#6d2fa3'],
+        backgroundColor: ['#c9a6f0','#b287ea','#9b68e3','#8449dc','#6d2fa3'],
         borderRadius: 8
       }]
     },
