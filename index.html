@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecossistema Ponto do Açaí — Painel</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f7f5f2;
+    color: #2b2320;
+  }
+  header {
+    background: linear-gradient(135deg, #5b2a86, #7e3fb0);
+    color: white;
+    padding: 24px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; opacity: 0.85; font-size: 13px; }
+  #refreshBtn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #refreshBtn:hover { background: rgba(255,255,255,0.25); }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: 1px solid #eee;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 12px; color: #8a7f78; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card .value { font-size: 24px; font-weight: 700; color: #4a1d75; }
+  .card .sub { font-size: 12px; color: #a0958d; margin-top: 4px; }
+  section { margin-bottom: 30px; }
+  section h2 { font-size: 15px; color: #4a1d75; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  th, td { text-align: left; padding: 9px 13px; font-size: 13px; border-bottom: 1px solid #f0ece8; }
+  th { background: #f4eefa; color: #5b2a86; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.ativo { background: #e3f5e6; color: #1c7a34; }
+  .badge.em_implantacao { background: #fff3d6; color: #97650a; }
+  .empty { color: #b0a49b; font-style: italic; font-size: 13px; padding: 16px; text-align: center; background: white; border-radius: 10px; border: 1px dashed #ddd; }
+  .chart-wrap { position: relative; height: 260px; background: white; border-radius: 12px; padding: 16px; border: 1px solid #eee; }
+  .footer-note { font-size: 12px; color: #a0958d; text-align: center; margin-top: 40px; }
+  .status-line { font-size: 12px; color: #a0958d; margin-top: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Ecossistema Ponto do Açaí — Parte Alta</h1>
+    <p>Painel ao vivo · dados direto do Supabase</p>
+    <p class="status-line" id="statusLine">Carregando...</p>
+  </div>
+  <button id="refreshBtn" onclick="loadAll()">Atualizar</button>
+</header>
+<main>
+  <section>
+    <h2>Canais de venda</h2>
+    <div id="channelsTable"><div class="empty">Carregando...</div></div>
+  </section>
+
+  <section>
+    <h2>Receita mensal por canal</h2>
+    <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+  </section>
+
+  <section>
+    <h2>Vendas recentes</h2>
+    <div id="salesTable"><div class="empty">Carregando...</div></div>
+  </section>
+
+  <section>
+    <h2>Funil de cardápio (período mais recente)</h2>
+    <div id="funnelCards" class="grid"></div>
+  </section>
+
+  <section>
+    <h2>Avaliações</h2>
+    <div id="reviewCards" class="grid"></div>
+  </section>
+
+  <section>
+    <h2>Redes sociais</h2>
+    <div id="socialCards" class="grid"></div>
+  </section>
+
+  <section>
+    <h2>Clientes (CRM central)</h2>
+    <div id="clientsTable"><div class="empty">Carregando...</div></div>
+  </section>
+
+  <p class="footer-note">Fonte: projeto Supabase ecossistema-ponto-acai-parte-alta</p>
+</main>
+
+<script>
+const SUPABASE_URL = 'https://vzwzgbxgkgucqmpkfwki.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_IsFUC4bbF7-xK5hK5Wyyfw_Q2rFLCVa';
+let revenueChart = null;
+
+async function sb(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!res.ok) throw new Error('Erro ao consultar ' + path);
+  return res.json();
+}
+
+function fmtMoney(v) {
+  const n = Number(v || 0);
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function badgeClass(status) {
+  if (status === 'ativo') return 'ativo';
+  if (status === 'em_implantacao') return 'em_implantacao';
+  return '';
+}
+
+async function loadChannels() {
+  const rows = await sb('channels?select=id,slug,name,status&order=id.asc');
+  const el = document.getElementById('channelsTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Nenhum canal cadastrado.</div>'; return rows; }
+  el.innerHTML = `<table><thead><tr><th>Canal</th><th>Slug</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.name}</td><td>${r.slug}</td><td><span class="badge ${badgeClass(r.status)}">${r.status}</span></td></tr>`).join('')}
+  </tbody></table>`;
+  return rows;
+}
+
+async function loadRevenue(channels) {
+  const rows = await sb('monthly_revenue?select=month,total_value,total_sales,channels(name)&order=month.asc');
+  const flat = rows.map(r => ({ month: r.month, total_value: r.total_value, channel: r.channels ? r.channels.name : '—' }));
+  const wrap = document.getElementById('revenueChart').parentElement;
+  if (!flat.length) { wrap.innerHTML = '<div class="empty">Sem dados de receita mensal ainda.</div>'; return; }
+  const months = [...new Set(flat.map(r => r.month))].sort();
+  const channelNames = [...new Set(flat.map(r => r.channel))];
+  const palette = ['#7e3fb0','#e07a3f','#3f9ee0','#4caf50','#e05a5a'];
+  const datasets = channelNames.map((name, i) => ({
+    label: name,
+    data: months.map(m => {
+      const row = flat.find(r => r.month === m && r.channel === name);
+      return row ? Number(row.total_value) : null;
+    }),
+    borderColor: palette[i % palette.length],
+    backgroundColor: palette[i % palette.length] + '33',
+    tension: 0.3,
+    spanGaps: true
+  }));
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: months.map(m => new Date(m).toLocaleDateString('pt-BR', {month:'short', year:'2-digit'})), datasets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+async function loadSales() {
+  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,channels(name)&order=period_end.desc&limit=20');
+  const el = document.getElementById('salesTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem vendas coletadas ainda.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Canal</th><th>Período</th><th>Pedidos</th><th>Valor</th><th>Ticket médio</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${r.period_start} a ${r.period_end}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+async function loadFunnel() {
+  const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,channels(name)&order=period_end.desc&limit=1');
+  const el = document.getElementById('funnelCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>Canal / período</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div><div class="sub">${r.period_start} a ${r.period_end}</div></div>
+    <div class="card"><h3>Visitas</h3><div class="value">${r.visits}</div></div>
+    <div class="card"><h3>Visualizações</h3><div class="value">${r.views}</div></div>
+    <div class="card"><h3>Sacola</h3><div class="value">${r.cart}</div></div>
+    <div class="card"><h3>Revisão</h3><div class="value">${r.review}</div></div>
+    <div class="card"><h3>Concluídos</h3><div class="value">${r.completed}</div></div>
+  `;
+}
+
+async function loadReviews() {
+  const rows = await sb('review_snapshots?select=store_rating,store_count,period_days,channels(name)&order=collected_at.desc&limit=1');
+  const el = document.getElementById('reviewCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem avaliações coletadas ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>Canal</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div></div>
+    <div class="card"><h3>Nota da loja</h3><div class="value">${r.store_rating}</div></div>
+    <div class="card"><h3>Avaliações (${r.period_days}d)</h3><div class="value">${r.store_count}</div></div>
+  `;
+}
+
+async function loadSocial() {
+  const rows = await sb('social_snapshots?select=platform,followers,reach,posts_count&order=collected_at.desc&limit=1');
+  const el = document.getElementById('socialCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de redes sociais ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>${r.platform}</h3><div class="value">${r.followers ?? '—'}</div><div class="sub">seguidores</div></div>
+    <div class="card"><h3>Alcance</h3><div class="value">${r.reach ?? '—'}</div></div>
+    <div class="card"><h3>Posts no período</h3><div class="value">${r.posts_count ?? '—'}</div></div>
+  `;
+}
+
+async function loadClients() {
+  const rows = await sb('central_clientes?select=nome_parcial,total_pedidos,total_gasto,status&order=total_gasto.desc.nullslast&limit=20');
+  const el = document.getElementById('clientsTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem clientes cadastrados na base central ainda.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Cliente</th><th>Pedidos</th><th>Total gasto</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.nome_parcial||'-'}</td><td>${r.total_pedidos ?? '-'}</td><td>${fmtMoney(r.total_gasto)}</td><td>${r.status||'-'}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+async function loadAll() {
+  document.getElementById('statusLine').textContent = 'Atualizando...';
+  try {
+    const channels = await loadChannels();
+    await Promise.all([
+      loadRevenue(channels),
+      loadSales(),
+      loadFunnel(),
+      loadReviews(),
+      loadSocial(),
+      loadClients()
+    ]);
+    document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
+  } catch (e) {
+    document.getElementById('statusLine').textContent = 'Erro ao atualizar: ' + e.message;
+  }
+}
+
+loadAll();
+</script>
+</body>
+</html>
