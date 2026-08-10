@@ -295,6 +295,9 @@ document.getElementById('tabs').addEventListener('click', (e) => {
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  requestAnimationFrame(() => {
+    [revenueChart, funnelChart, segmentChart, campaignsChart].forEach(c => { if (c) c.resize(); });
+  });
 });
 
 async function sb(path) {
