@@ -272,7 +272,7 @@ async function loadRevenue() {
   if (revenueChart) revenueChart.destroy();
   revenueChart = new Chart(ctx, {
     type: 'line',
-    data: { labels: months.map(m => new Date(m).toLocaleDateString('pt-BR', {month:'short', year:'2-digit'})), datasets },
+    data: { labels: months.map(m => new Date(m + 'T00:00:00').toLocaleDateString('pt-BR', {month:'short', year:'2-digit'})), datasets },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
   });
 }
@@ -347,7 +347,7 @@ async function loadFinance() {
   const r = rows[0];
   const repassePct = r.sales_value ? ((r.net_revenue / r.sales_value) * 100).toFixed(1) : '—';
   cardsEl.innerHTML = `
-    <div class="card"><h3>Mês</h3><div class="value" style="font-size:16px">${new Date(r.period_month).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div></div>
+    <div class="card"><h3>Mês</h3><div class="value" style="font-size:16px">${new Date(r.period_month + 'T00:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div></div>
     <div class="card"><h3>Valor das vendas</h3><div class="value pos">${fmtMoney(r.sales_value)}</div></div>
     <div class="card"><h3>Taxas e comissões</h3><div class="value neg">-${fmtMoney(r.fees_value)}</div></div>
     <div class="card"><h3>Serviços e promoções</h3><div class="value neg">-${fmtMoney(r.promo_services_value)}</div></div>
@@ -462,3 +462,4 @@ loadAll();
 </script>
 </body>
 </html>
+
