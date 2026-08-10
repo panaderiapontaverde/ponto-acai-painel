@@ -36,8 +36,28 @@
     cursor: pointer;
   }
   #refreshBtn:hover { background: rgba(255,255,255,0.25); }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+  nav.tabs {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 14px 20px 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  nav.tabs button {
+    background: white;
+    border: 1px solid #e6ddd6;
+    color: #5b2a86;
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  nav.tabs button.active { background: #5b2a86; color: white; border-color: #5b2a86; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 20px 60px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .grid.small { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .card {
     background: white;
     border-radius: 12px;
@@ -47,9 +67,12 @@
   }
   .card h3 { margin: 0 0 6px; font-size: 12px; color: #8a7f78; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .card .value { font-size: 24px; font-weight: 700; color: #4a1d75; }
+  .card .value.neg { color: #b8433a; }
+  .card .value.pos { color: #1c7a34; }
   .card .sub { font-size: 12px; color: #a0958d; margin-top: 4px; }
   section { margin-bottom: 30px; }
   section h2 { font-size: 15px; color: #4a1d75; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 14px; }
+  section h2 .period { font-size: 11px; color: #a0958d; font-weight: 400; float: right; }
   table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
   th, td { text-align: left; padding: 9px 13px; font-size: 13px; border-bottom: 1px solid #f0ece8; }
   th { background: #f4eefa; color: #5b2a86; font-weight: 600; }
@@ -61,6 +84,8 @@
   .chart-wrap { position: relative; height: 260px; background: white; border-radius: 12px; padding: 16px; border: 1px solid #eee; }
   .footer-note { font-size: 12px; color: #a0958d; text-align: center; margin-top: 40px; }
   .status-line { font-size: 12px; color: #a0958d; margin-top: 2px; }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
 </style>
 </head>
 <body>
@@ -72,41 +97,103 @@
   </div>
   <button id="refreshBtn" onclick="loadAll()">Atualizar</button>
 </header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="visao" class="active">Visão geral</button>
+  <button data-tab="financeiro">Financeiro</button>
+  <button data-tab="operacao">Operação</button>
+  <button data-tab="cardapio">Cardápio</button>
+  <button data-tab="clientes">Clientes</button>
+  <button data-tab="marketing">Marketing</button>
+  <button data-tab="social">Redes sociais</button>
+</nav>
+
 <main>
-  <section>
-    <h2>Canais de venda</h2>
-    <div id="channelsTable"><div class="empty">Carregando...</div></div>
-  </section>
 
-  <section>
-    <h2>Receita mensal por canal</h2>
-    <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
-  </section>
+  <div class="tabpanel active" id="tab-visao">
+    <section>
+      <h2>Canais de venda</h2>
+      <div id="channelsTable"><div class="empty">Carregando...</div></div>
+    </section>
 
-  <section>
-    <h2>Vendas recentes</h2>
-    <div id="salesTable"><div class="empty">Carregando...</div></div>
-  </section>
+    <section>
+      <h2>Receita mensal por canal</h2>
+      <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+    </section>
 
-  <section>
-    <h2>Funil de cardápio (período mais recente)</h2>
-    <div id="funnelCards" class="grid"></div>
-  </section>
+    <section>
+      <h2>Vendas recentes</h2>
+      <div id="salesTable"><div class="empty">Carregando...</div></div>
+    </section>
 
-  <section>
-    <h2>Avaliações</h2>
-    <div id="reviewCards" class="grid"></div>
-  </section>
+    <section>
+      <h2>Funil de cardápio (período mais recente)</h2>
+      <div id="funnelCards" class="grid"></div>
+    </section>
 
-  <section>
-    <h2>Redes sociais</h2>
-    <div id="socialCards" class="grid"></div>
-  </section>
+    <section>
+      <h2>Avaliações</h2>
+      <div id="reviewCards" class="grid"></div>
+    </section>
+  </div>
 
-  <section>
-    <h2>Clientes (CRM central)</h2>
-    <div id="clientsTable"><div class="empty">Carregando...</div></div>
-  </section>
+  <div class="tabpanel" id="tab-financeiro">
+    <section>
+      <h2>Faturamento do mês</h2>
+      <div id="financeCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Repasses</h2>
+      <div id="financeExtra" class="grid small"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-operacao">
+    <section>
+      <h2>Operação (últimos 7 dias)</h2>
+      <div id="operationCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Negociações após entrega</h2>
+      <div id="negotiationCards" class="grid"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-cardapio">
+    <section>
+      <h2>Itens mais vendidos</h2>
+      <div id="topItemsTable"><div class="empty">Carregando...</div></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-clientes">
+    <section>
+      <h2>Segmentação de clientes</h2>
+      <div id="segmentCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Clientes (CRM central)</h2>
+      <div id="clientsTable"><div class="empty">Carregando...</div></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-marketing">
+    <section>
+      <h2>Resumo de promoções</h2>
+      <div id="marketingCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Campanhas</h2>
+      <div id="campaignsTable"><div class="empty">Carregando...</div></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-social">
+    <section>
+      <h2>Redes sociais</h2>
+      <div id="socialCards" class="grid"></div>
+    </section>
+  </div>
 
   <p class="footer-note">Fonte: projeto Supabase ecossistema-ponto-acai-parte-alta</p>
 </main>
@@ -115,6 +202,15 @@
 const SUPABASE_URL = 'https://vzwzgbxgkgucqmpkfwki.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_IsFUC4bbF7-xK5hK5Wyyfw_Q2rFLCVa';
 let revenueChart = null;
+
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-tab]');
+  if (!btn) return;
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+});
 
 async function sb(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -127,6 +223,14 @@ async function sb(path) {
 function fmtMoney(v) {
   const n = Number(v || 0);
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtPct(v) {
+  if (v === null || v === undefined) return '—';
+  return Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%';
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
 }
 
 function badgeClass(status) {
@@ -145,7 +249,7 @@ async function loadChannels() {
   return rows;
 }
 
-async function loadRevenue(channels) {
+async function loadRevenue() {
   const rows = await sb('monthly_revenue?select=month,total_value,total_sales,channels(name)&order=month.asc');
   const flat = rows.map(r => ({ month: r.month, total_value: r.total_value, channel: r.channels ? r.channels.name : '—' }));
   const wrap = document.getElementById('revenueChart').parentElement;
@@ -174,11 +278,11 @@ async function loadRevenue(channels) {
 }
 
 async function loadSales() {
-  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,channels(name)&order=period_end.desc&limit=20');
+  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,channels(name)&order=period_end.desc&limit=20');
   const el = document.getElementById('salesTable');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem vendas coletadas ainda.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Canal</th><th>Período</th><th>Pedidos</th><th>Valor</th><th>Ticket médio</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${r.period_start} a ${r.period_end}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td></tr>`).join('')}
+  el.innerHTML = `<table><thead><tr><th>Canal</th><th>Período</th><th>Pedidos</th><th>Valor</th><th>Ticket médio</th><th>Novos clientes</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td><td>${r.new_customers ?? '—'}</td></tr>`).join('')}
   </tbody></table>`;
 }
 
@@ -187,13 +291,14 @@ async function loadFunnel() {
   const el = document.getElementById('funnelCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
   const r = rows[0];
+  const conv = r.visits ? ((r.completed / r.visits) * 100).toFixed(2) : '—';
   el.innerHTML = `
-    <div class="card"><h3>Canal / período</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div><div class="sub">${r.period_start} a ${r.period_end}</div></div>
+    <div class="card"><h3>Canal / período</h3><div class="value" style="font-size:16px">${r.channels ? r.channels.name : '—'}</div><div class="sub">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
     <div class="card"><h3>Visitas</h3><div class="value">${r.visits}</div></div>
     <div class="card"><h3>Visualizações</h3><div class="value">${r.views}</div></div>
     <div class="card"><h3>Sacola</h3><div class="value">${r.cart}</div></div>
     <div class="card"><h3>Revisão</h3><div class="value">${r.review}</div></div>
-    <div class="card"><h3>Concluídos</h3><div class="value">${r.completed}</div></div>
+    <div class="card"><h3>Concluídos</h3><div class="value">${r.completed}</div><div class="sub">conversão ${conv}%</div></div>
   `;
 }
 
@@ -230,17 +335,122 @@ async function loadClients() {
   </tbody></table>`;
 }
 
+async function loadFinance() {
+  const rows = await sb('financial_snapshots?select=*,channels(name)&order=period_month.desc&limit=1');
+  const cardsEl = document.getElementById('financeCards');
+  const extraEl = document.getElementById('financeExtra');
+  if (!rows.length) {
+    cardsEl.innerHTML = '<div class="empty">Sem dados financeiros ainda.</div>';
+    extraEl.innerHTML = '';
+    return;
+  }
+  const r = rows[0];
+  const repassePct = r.sales_value ? ((r.net_revenue / r.sales_value) * 100).toFixed(1) : '—';
+  cardsEl.innerHTML = `
+    <div class="card"><h3>Mês</h3><div class="value" style="font-size:16px">${new Date(r.period_month).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div></div>
+    <div class="card"><h3>Valor das vendas</h3><div class="value pos">${fmtMoney(r.sales_value)}</div></div>
+    <div class="card"><h3>Taxas e comissões</h3><div class="value neg">-${fmtMoney(r.fees_value)}</div></div>
+    <div class="card"><h3>Serviços e promoções</h3><div class="value neg">-${fmtMoney(r.promo_services_value)}</div></div>
+    <div class="card"><h3>Faturamento líquido</h3><div class="value">${fmtMoney(r.net_revenue)}</div><div class="sub">${repassePct}% do bruto</div></div>
+  `;
+  extraEl.innerHTML = `
+    <div class="card"><h3>Já recebido</h3><div class="value pos">${fmtMoney(r.received_value)}</div></div>
+    <div class="card"><h3>Retido</h3><div class="value">${fmtMoney(r.retained_value)}</div></div>
+    <div class="card"><h3>A receber</h3><div class="value">${fmtMoney(r.receivable_value)}</div></div>
+    <div class="card"><h3>Próximo pagamento</h3><div class="value" style="font-size:16px">${fmtDate(r.next_payment_date)}</div></div>
+  `;
+}
+
+async function loadOperation() {
+  const rows = await sb('operation_snapshots?select=*,channels(name)&order=period_end.desc&limit=1');
+  const el = document.getElementById('operationCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de operação ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
+    <div class="card"><h3>Cancelamentos</h3><div class="value ${r.cancel_rate > 2 ? 'neg' : 'pos'}">${fmtPct(r.cancel_rate)}</div></div>
+    <div class="card"><h3>Chamados abertos</h3><div class="value ${r.calls_rate > 25 ? 'neg' : ''}">${fmtPct(r.calls_rate)}</div></div>
+    <div class="card"><h3>Tempo aberto</h3><div class="value" style="font-size:18px">${r.open_hours ? Number(r.open_hours).toFixed(1) + 'h' : '—'}</div></div>
+    <div class="card"><h3>Pico de despacho</h3><div class="value" style="font-size:16px">${fmtDate(r.top_dispatch_day)}</div><div class="sub">${r.top_dispatch_count ?? '—'} pedidos</div></div>
+  `;
+}
+
+async function loadNegotiations() {
+  const rows = await sb('negotiation_snapshots?select=*&order=period_end.desc&limit=1');
+  const el = document.getElementById('negotiationCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de negociações ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>Pedidos com problema</h3><div class="value">${r.problem_orders ?? '—'}</div></div>
+    <div class="card"><h3>Taxa de resposta da loja</h3><div class="value pos">${fmtPct(r.store_response_rate)}</div></div>
+    <div class="card"><h3>Taxa de aceite do cliente</h3><div class="value">${fmtPct(r.client_accept_rate)}</div></div>
+    <div class="card"><h3>Reembolsos</h3><div class="value">${fmtMoney(r.refunds_value)}</div></div>
+  `;
+}
+
+async function loadTopItems() {
+  const rows = await sb('top_items?select=rank,item_name,visits,sales,revenue&order=snapshot_date.desc,rank.asc&limit=10');
+  const el = document.getElementById('topItemsTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem itens coletados ainda.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>#</th><th>Item</th><th>Visitas</th><th>Vendas</th><th>Faturamento</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.rank}º</td><td>${r.item_name}</td><td>${r.visits ?? '—'}</td><td>${r.sales ?? '—'}</td><td>${fmtMoney(r.revenue)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+async function loadSegments() {
+  const rows = await sb('customer_segments?select=*&order=compare_to.desc&limit=1');
+  const el = document.getElementById('segmentCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem segmentação de clientes ainda.</div>'; return; }
+  const r = rows[0];
+  el.innerHTML = `
+    <div class="card"><h3>Novos</h3><div class="value pos">${r.novos ?? '—'}</div></div>
+    <div class="card"><h3>Frequentes</h3><div class="value pos">${r.frequentes ?? '—'}</div></div>
+    <div class="card"><h3>Em alerta</h3><div class="value">${r.em_alerta ?? '—'}</div></div>
+    <div class="card"><h3>Sumidos</h3><div class="value neg">${r.sumidos ?? '—'}</div></div>
+    <div class="card"><h3>Recuperados</h3><div class="value pos">${r.recuperados ?? '—'}</div></div>
+  `;
+}
+
+async function loadMarketing() {
+  const rows = await sb('marketing_snapshots?select=*&order=period_end.desc&limit=1');
+  const el = document.getElementById('marketingCards');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de marketing ainda.</div>'; }
+  else {
+    const r = rows[0];
+    el.innerHTML = `
+      <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
+      <div class="card"><h3>Pedidos com promoção</h3><div class="value">${r.promo_orders ?? '—'}</div></div>
+      <div class="card"><h3>Investido pela loja</h3><div class="value neg">${fmtMoney(r.invested_total)}</div></div>
+      <div class="card"><h3>ROI</h3><div class="value pos">R$ ${r.roi ?? '—'}/real</div></div>
+      <div class="card"><h3>Ticket médio (promo)</h3><div class="value">${fmtMoney(r.avg_ticket_promo)}</div></div>
+    `;
+  }
+
+  const camps = await sb('promotion_campaigns?select=campaign_name,orders,sales_value,invested,roi&order=orders.desc&limit=20');
+  const campEl = document.getElementById('campaignsTable');
+  if (!camps.length) { campEl.innerHTML = '<div class="empty">Sem campanhas coletadas ainda.</div>'; return; }
+  campEl.innerHTML = `<table><thead><tr><th>Campanha</th><th>Pedidos</th><th>Vendas</th><th>Investido</th><th>ROI</th></tr></thead><tbody>
+    ${camps.map(c => `<tr><td>${c.campaign_name}</td><td>${c.orders}</td><td>${fmtMoney(c.sales_value)}</td><td>${fmtMoney(c.invested)}</td><td>R$ ${c.roi}/real</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
 async function loadAll() {
   document.getElementById('statusLine').textContent = 'Atualizando...';
   try {
-    const channels = await loadChannels();
     await Promise.all([
-      loadRevenue(channels),
+      loadChannels(),
+      loadRevenue(),
       loadSales(),
       loadFunnel(),
       loadReviews(),
       loadSocial(),
-      loadClients()
+      loadClients(),
+      loadFinance(),
+      loadOperation(),
+      loadNegotiations(),
+      loadTopItems(),
+      loadSegments(),
+      loadMarketing()
     ]);
     document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
   } catch (e) {
