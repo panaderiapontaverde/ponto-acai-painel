@@ -254,7 +254,7 @@
 
     <section>
       <h2>Catálogo completo (todos os SKUs)</h2>
-      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Cada tamanho conta como um SKU separado. Itens pausados aparecem esmaecidos. Colunas de Gami/99Food/Anota Aí ficam prontas para quando operarmos outros marketplaces — hoje só o iFood está preenchido.</p>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Cada tamanho conta como um SKU separado. Itens pausados aparecem esmaecidos. Colunas de 99Food/Anota Aí ficam prontas para quando operarmos outros marketplaces — hoje só o iFood está preenchido. Gami não entra aqui: é entregador terceirizado, não canal de venda.</p>
       <div class="catalog-summary" id="catalogSummary"></div>
       <div class="catalog-toolbar">
         <input type="text" id="catalogSearch" placeholder="Buscar produto, categoria ou observação...">
@@ -563,7 +563,7 @@ function renderCatalog() {
 
   el.innerHTML = `<div class="catalog-scroll"><table><thead><tr>
     <th>Categoria</th><th>Produto</th><th>SKU / Tamanho</th><th>Status</th>
-    <th>Preço iFood</th><th>Gami</th><th>99Food</th><th>Anota Aí</th><th>Observações</th>
+    <th>Preço iFood</th><th>99Food</th><th>Anota Aí</th><th>Observações</th>
   </tr></thead><tbody>
     ${filtered.map(r => {
       let grupoBadge = '';
@@ -578,7 +578,6 @@ function renderCatalog() {
       <td>${r.sku_tamanho || '—'}</td>
       <td><span class="badge ${r.status === 'Pausado' ? 'pausado' : 'ativo'}">${r.status}</span></td>
       <td>${r.preco_atual != null ? fmtMoney(r.preco_atual) : '—'}</td>
-      <td>${r.preco_gami != null ? fmtMoney(r.preco_gami) : '—'}</td>
       <td>${r.preco_99food != null ? fmtMoney(r.preco_99food) : '—'}</td>
       <td>${r.preco_anotaai != null ? fmtMoney(r.preco_anotaai) : '—'}</td>
       <td class="obs-cell">${r.observacoes || ''}</td>
