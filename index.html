@@ -137,6 +137,22 @@
   .badge.ativo { background: #e2f7e9; color: var(--green); }
   .badge.em_implantacao { background: #fff2d9; color: #a3700c; }
   .badge.logistica { background: #ffe9d9; color: #b85a1a; }
+  .badge.pausado { background: #f1eef5; color: #8a7f9a; }
+
+  .catalog-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .catalog-toolbar input, .catalog-toolbar select {
+    border: 1px solid #e8e0f0; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--ink); background: white;
+  }
+  .catalog-toolbar input { flex: 1; min-width: 180px; }
+  .catalog-summary { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: var(--muted); }
+  .catalog-summary b { color: var(--purple-dark); }
+  tr.row-pausado td { color: #b0a4c2; }
+  tr.row-pausado td:first-child, tr.row-pausado td:nth-child(2) { color: #8a7f9a; }
+  .obs-cell { font-size: 11.5px; color: var(--muted); max-width: 220px; }
+  .cat-cell { font-size: 11.5px; color: var(--muted); }
+  .catalog-scroll { max-height: 640px; overflow-y: auto; border-radius: 14px; }
+  .catalog-scroll table { box-shadow: none; border-radius: 0; }
+  .catalog-scroll thead th { position: sticky; top: 0; z-index: 2; }
 
   .empty { color: #b0a4c2; font-style: italic; font-size: 13px; padding: 20px; text-align: center; background: white; border-radius: 14px; border: 1px dashed #ddd0ec; }
   .chart-wrap { position: relative; height: 270px; background: white; border-radius: 16px; padding: 18px; border: 1px solid #f0eaf7; box-shadow: 0 2px 10px rgba(74,29,117,0.06); }
@@ -233,6 +249,22 @@
     <section>
       <h2>Itens mais vendidos</h2>
       <div id="topItemsTable"><div class="empty">Carregando...</div></div>
+    </section>
+
+    <section>
+      <h2>Catálogo completo (todos os SKUs)</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Cada tamanho conta como um SKU separado. Itens pausados aparecem esmaecidos. Colunas de Gami/99Food/Anota Aí ficam prontas para quando operarmos outros marketplaces — hoje só o iFood está preenchido.</p>
+      <div class="catalog-summary" id="catalogSummary"></div>
+      <div class="catalog-toolbar">
+        <input type="text" id="catalogSearch" placeholder="Buscar produto, categoria ou observação...">
+        <select id="catalogCategoryFilter"><option value="">Todas as categorias</option></select>
+        <select id="catalogStatusFilter">
+          <option value="">Todos os status</option>
+          <option value="Ativo">Só ativos</option>
+          <option value="Pausado">Só pausados</option>
+        </select>
+      </div>
+      <div id="catalogTable"><div class="empty">Carregando...</div></div>
     </section>
   </div>
 
@@ -502,6 +534,69 @@ async function loadTopItems() {
   </tbody></table>`;
 }
 
+let catalogData = [];
+
+function renderCatalog() {
+  const search = document.getElementById('catalogSearch').value.trim().toLowerCase();
+  const cat = document.getElementById('catalogCategoryFilter').value;
+  const status = document.getElementById('catalogStatusFilter').value;
+  const el = document.getElementById('catalogTable');
+
+  let filtered = catalogData.filter(r => {
+    if (cat && r.categoria !== cat) return false;
+    if (status && r.status !== status) return false;
+    if (search) {
+      const blob = [r.categoria, r.produto, r.sku_tamanho, r.descricao, r.observacoes].join(' ').toLowerCase();
+      if (!blob.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) { el.innerHTML = '<div class="empty">Nenhum item encontrado com esse filtro.</div>'; return; }
+
+  el.innerHTML = `<div class="catalog-scroll"><table><thead><tr>
+    <th>Categoria</th><th>Produto</th><th>SKU / Tamanho</th><th>Status</th>
+    <th>Preço iFood</th><th>Gami</th><th>99Food</th><th>Anota Aí</th><th>Observações</th>
+  </tr></thead><tbody>
+    ${filtered.map(r => `<tr class="${r.status === 'Pausado' ? 'row-pausado' : ''}">
+      <td class="cat-cell">${r.categoria}</td>
+      <td>${r.produto}</td>
+      <td>${r.sku_tamanho || '—'}</td>
+      <td><span class="badge ${r.status === 'Pausado' ? 'pausado' : 'ativo'}">${r.status}</span></td>
+      <td>${r.preco_atual != null ? fmtMoney(r.preco_atual) : '—'}</td>
+      <td>${r.preco_gami != null ? fmtMoney(r.preco_gami) : '—'}</td>
+      <td>${r.preco_99food != null ? fmtMoney(r.preco_99food) : '—'}</td>
+      <td>${r.preco_anotaai != null ? fmtMoney(r.preco_anotaai) : '—'}</td>
+      <td class="obs-cell">${r.observacoes || ''}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function loadCatalog() {
+  const rows = await sb('menu_catalog?select=*&order=id.asc');
+  catalogData = rows;
+  const summaryEl = document.getElementById('catalogSummary');
+  const catSelect = document.getElementById('catalogCategoryFilter');
+  if (!rows.length) {
+    document.getElementById('catalogTable').innerHTML = '<div class="empty">Catálogo ainda não importado.</div>';
+    return;
+  }
+  const categorias = [...new Set(rows.map(r => r.categoria))];
+  catSelect.innerHTML = '<option value="">Todas as categorias</option>' + categorias.map(c => `<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
+  const pausados = rows.filter(r => r.status === 'Pausado').length;
+  const duplicados = rows.filter(r => (r.observacoes || '').toUpperCase().includes('DUPLICADO')).length;
+  summaryEl.innerHTML = `
+    <span><b>${rows.length}</b> SKUs catalogados</span>
+    <span><b>${categorias.length}</b> categorias</span>
+    <span><b>${pausados}</b> pausados</span>
+    <span><b>${duplicados}</b> com cadastro duplicado (revisar)</span>
+  `;
+  renderCatalog();
+  document.getElementById('catalogSearch').addEventListener('input', renderCatalog);
+  catSelect.addEventListener('change', renderCatalog);
+  document.getElementById('catalogStatusFilter').addEventListener('change', renderCatalog);
+}
+
 async function loadSegments() {
   const rows = await sb('customer_segments?select=*&order=compare_to.desc&limit=1');
   const el = document.getElementById('segmentCards');
@@ -640,7 +735,8 @@ async function loadAll() {
       loadTopItems(),
       loadSegments(),
       loadMarketing(),
-      loadLogistics()
+      loadLogistics(),
+      loadCatalog()
     ]);
     await loadHeroKpis({ finance, sales, reviews, marketing });
     document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
