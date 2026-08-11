@@ -156,6 +156,15 @@
   .catalog-scroll thead th { position: sticky; top: 0; z-index: 2; }
 
   .empty { color: #b0a4c2; font-style: italic; font-size: 13px; padding: 20px; text-align: center; background: white; border-radius: 14px; border: 1px dashed #ddd0ec; }
+  .edit-input { width: 84px; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 4px 6px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--ink); }
+  .edit-input:hover { border-color: #e8e0f0; background: #fbf9fd; }
+  .edit-input:focus { outline: none; border-color: var(--purple); background: white; box-shadow: 0 0 0 2px rgba(109,47,163,0.12); }
+  .edit-input.obs-input { width: 100%; min-width: 160px; }
+  select.edit-input { width: 96px; cursor: pointer; }
+  .save-flash { display: inline-block; margin-left: 4px; font-size: 11px; color: var(--green); opacity: 0; transition: opacity 0.2s ease; }
+  .save-flash.show { opacity: 1; }
+  .save-flash.err { color: var(--red); }
+  .edit-hint { font-size: 12px; color: var(--muted); background: #fbf6ff; border: 1px solid #ece3f7; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
   .chart-wrap { position: relative; height: 270px; background: white; border-radius: 16px; padding: 18px; border: 1px solid #f0eaf7; box-shadow: 0 2px 10px rgba(74,29,117,0.06); }
   .chart-wrap.short { height: 230px; }
 
@@ -254,7 +263,8 @@
 
     <section>
       <h2>Catálogo completo (todos os SKUs)</h2>
-      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Cada tamanho conta como um SKU separado. Itens pausados aparecem esmaecidos. Colunas de 99Food/Anota Aí ficam prontas para quando operarmos outros marketplaces — hoje só o iFood está preenchido. Gami não entra aqui: é entregador terceirizado, não canal de venda.</p>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Cada tamanho conta como um SKU separado. Itens pausados aparecem esmaecidos. Gami não entra aqui: é entregador terceirizado, não canal de venda.</p>
+      <div class="edit-hint">✏️ Clique em qualquer preço, status ou observação da tabela para editar direto aqui — salva automaticamente no banco. A coleta automática roda toda noite às 23h e atualiza os preços de iFood e Anota Aí; edições manuais podem ser sobrescritas na próxima coleta.</div>
       <div class="catalog-summary" id="catalogSummary"></div>
       <div class="catalog-toolbar">
         <input type="text" id="catalogSearch" placeholder="Buscar produto, categoria ou observação...">
@@ -339,6 +349,42 @@ async function sb(path) {
   });
   if (!res.ok) throw new Error('Erro ao consultar ' + path);
   return res.json();
+}
+
+async function sbPatch(path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('Erro ao salvar (' + res.status + ')');
+}
+
+function parseMoneyInput(v) {
+  if (v === '' || v == null) return null;
+  const n = Number(String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+async function saveCatalogField(id, field, rawValue, el) {
+  const flash = el.parentElement.querySelector('.save-flash');
+  let value = rawValue;
+  if (['preco_atual','preco_99food','preco_anotaai'].includes(field)) value = parseMoneyInput(rawValue);
+  if (field === 'observacoes' && value === '') value = null;
+  try {
+    await sbPatch(`menu_catalog?id=eq.${id}`, { [field]: value });
+    const row = catalogData.find(r => r.id === id);
+    if (row) row[field] = value;
+    if (flash) { flash.textContent = '✓ salvo'; flash.classList.remove('err'); flash.classList.add('show'); setTimeout(() => flash.classList.remove('show'), 1500); }
+  } catch (e) {
+    if (flash) { flash.textContent = '✗ erro'; flash.classList.add('err','show'); setTimeout(() => flash.classList.remove('show'), 2500); }
+    console.error(e);
+  }
 }
 
 function fmtMoney(v) {
@@ -572,15 +618,22 @@ function renderCatalog() {
         const tip = 'Mesmo produto também cadastrado em: ' + others.map(o => o.categoria + ' — ' + fmtMoney(o.preco_atual)).join(' | ');
         grupoBadge = `<br><span class="badge grupo" title="${tip.replace(/"/g,'&quot;')}">🔗 mesmo produto em ${others.length} cadastro(s)</span>`;
       }
+      const priceVal = (v) => v != null ? Number(v).toFixed(2).replace('.', ',') : '';
       return `<tr class="${r.status === 'Pausado' ? 'row-pausado' : ''}">
       <td class="cat-cell">${r.categoria}</td>
       <td>${r.produto}${grupoBadge}</td>
       <td>${r.sku_tamanho || '—'}</td>
-      <td><span class="badge ${r.status === 'Pausado' ? 'pausado' : 'ativo'}">${r.status}</span></td>
-      <td>${r.preco_atual != null ? fmtMoney(r.preco_atual) : '—'}</td>
-      <td>${r.preco_99food != null ? fmtMoney(r.preco_99food) : '—'}</td>
-      <td>${r.preco_anotaai != null ? fmtMoney(r.preco_anotaai) : '—'}</td>
-      <td class="obs-cell">${r.observacoes || ''}</td>
+      <td>
+        <select class="edit-input" onchange="saveCatalogField(${r.id}, 'status', this.value, this)">
+          <option value="Ativo" ${r.status !== 'Pausado' ? 'selected' : ''}>Ativo</option>
+          <option value="Pausado" ${r.status === 'Pausado' ? 'selected' : ''}>Pausado</option>
+        </select>
+        <span class="save-flash"></span>
+      </td>
+      <td><input class="edit-input" value="${priceVal(r.preco_atual)}" placeholder="—" onblur="saveCatalogField(${r.id}, 'preco_atual', this.value, this)"><span class="save-flash"></span></td>
+      <td><input class="edit-input" value="${priceVal(r.preco_99food)}" placeholder="—" onblur="saveCatalogField(${r.id}, 'preco_99food', this.value, this)"><span class="save-flash"></span></td>
+      <td><input class="edit-input" value="${priceVal(r.preco_anotaai)}" placeholder="—" onblur="saveCatalogField(${r.id}, 'preco_anotaai', this.value, this)"><span class="save-flash"></span></td>
+      <td class="obs-cell"><input class="edit-input obs-input" value="${(r.observacoes || '').replace(/"/g,'&quot;')}" placeholder="—" onblur="saveCatalogField(${r.id}, 'observacoes', this.value, this)"><span class="save-flash"></span></td>
     </tr>`;
     }).join('')}
   </tbody></table></div>`;
