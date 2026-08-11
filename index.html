@@ -165,6 +165,14 @@
   .save-flash.show { opacity: 1; }
   .save-flash.err { color: var(--red); }
   .edit-hint { font-size: 12px; color: var(--muted); background: #fbf6ff; border: 1px solid #ece3f7; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+  .add-btn { background: var(--purple); color: white; border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .add-btn:hover { background: var(--purple-dark); }
+  .client-add-form { background: white; border: 1px solid #e8e0f0; border-radius: 14px; padding: 16px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; }
+  .client-add-form label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; display: block; margin-bottom: 4px; }
+  .client-add-form input, .client-add-form select { width: 100%; border: 1px solid #e8e0f0; border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: 'Inter', sans-serif; box-sizing: border-box; }
+  .client-add-form .form-actions { display: flex; gap: 8px; }
+  .client-add-form .btn-save { background: var(--green); color: white; border: none; border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .client-add-form .btn-cancel { background: #f1eef5; color: var(--muted); border: none; border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
   .chart-wrap { position: relative; height: 270px; background: white; border-radius: 16px; padding: 18px; border: 1px solid #f0eaf7; box-shadow: 0 2px 10px rgba(74,29,117,0.06); }
   .chart-wrap.short { height: 230px; }
 
@@ -289,6 +297,15 @@
     </section>
     <section>
       <h2>Clientes (CRM central)</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Base de clientes coletada manualmente (ex: contatos do chat do iFood) e por outros canais. Acompanhe contato, endereço, gasto total e migração pro Anota Aí.</p>
+      <div class="edit-hint">✏️ Clique em qualquer campo da tabela para editar direto aqui — salva automaticamente no banco. Use "+ Novo cliente" para cadastrar um contato novo.</div>
+      <div class="catalog-summary" id="clientsSummary"></div>
+      <div class="catalog-toolbar">
+        <input type="text" id="clientsSearch" placeholder="Buscar por nome, telefone ou endereço...">
+        <select id="clientsStatusFilter"><option value="">Todos os status</option></select>
+        <button id="addClientBtn" class="add-btn" type="button">+ Novo cliente</button>
+      </div>
+      <div id="clientAddForm" class="client-add-form" style="display:none;"></div>
       <div id="clientsTable"><div class="empty">Carregando...</div></div>
     </section>
   </div>
@@ -509,13 +526,137 @@ async function loadSocial() {
   `;
 }
 
-async function loadClients() {
-  const rows = await sb('central_clientes?select=nome_parcial,total_pedidos,total_gasto,status&order=total_gasto.desc.nullslast&limit=20');
+async function sbInsert(path, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('Erro ao salvar (' + res.status + ')');
+  return res.json();
+}
+
+let clientsData = [];
+const CLIENT_STATUSES = ['aguardando_whatsapp','ativo','recorrente','vip','inativo'];
+
+async function saveClientField(id, field, rawValue, el) {
+  const flash = el.parentElement.querySelector('.save-flash');
+  let value = rawValue;
+  if (field === 'total_gasto') value = parseMoneyInput(rawValue);
+  if (field === 'total_pedidos') value = rawValue === '' ? null : parseInt(rawValue, 10);
+  if (['nome_parcial','nome_completo','whatsapp','endereco','observacoes'].includes(field) && value === '') value = null;
+  try {
+    await sbPatch(`central_clientes?id=eq.${id}`, { [field]: value });
+    const row = clientsData.find(r => r.id === id);
+    if (row) row[field] = value;
+    if (flash) { flash.textContent = '✓ salvo'; flash.classList.remove('err'); flash.classList.add('show'); setTimeout(() => flash.classList.remove('show'), 1500); }
+  } catch (e) {
+    if (flash) { flash.textContent = '✗ erro'; flash.classList.add('err','show'); setTimeout(() => flash.classList.remove('show'), 2500); }
+    console.error(e);
+  }
+}
+
+function renderClients() {
+  const search = document.getElementById('clientsSearch').value.trim().toLowerCase();
+  const status = document.getElementById('clientsStatusFilter').value;
   const el = document.getElementById('clientsTable');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem clientes cadastrados na base central ainda.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Cliente</th><th>Pedidos</th><th>Total gasto</th><th>Status</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${r.nome_parcial||'-'}</td><td>${r.total_pedidos ?? '-'}</td><td>${fmtMoney(r.total_gasto)}</td><td>${r.status||'-'}</td></tr>`).join('')}
-  </tbody></table>`;
+  let filtered = clientsData.filter(r => {
+    if (status && r.status !== status) return false;
+    if (search) {
+      const blob = [r.nome_completo, r.nome_parcial, r.whatsapp, r.endereco, r.observacoes].join(' ').toLowerCase();
+      if (!blob.includes(search)) return false;
+    }
+    return true;
+  });
+  if (!filtered.length) { el.innerHTML = '<div class="empty">Nenhum cliente encontrado com esse filtro.</div>'; return; }
+  el.innerHTML = `<div class="catalog-scroll"><table><thead><tr>
+    <th>Nome</th><th>WhatsApp</th><th>Endereço</th><th>Status</th><th>Pedidos</th><th>Total gasto</th><th>Últ. pedido</th><th>Observações</th>
+  </tr></thead><tbody>
+    ${filtered.map(r => `<tr>
+      <td><input class="edit-input" style="width:130px" value="${(r.nome_completo || r.nome_parcial || '').replace(/"/g,'&quot;')}" placeholder="Nome" onblur="saveClientField(${r.id}, 'nome_completo', this.value, this)"><span class="save-flash"></span></td>
+      <td><input class="edit-input" style="width:120px" value="${(r.whatsapp||'').replace(/"/g,'&quot;')}" placeholder="—" onblur="saveClientField(${r.id}, 'whatsapp', this.value, this)"><span class="save-flash"></span></td>
+      <td><input class="edit-input obs-input" style="min-width:160px" value="${(r.endereco||'').replace(/"/g,'&quot;')}" placeholder="—" onblur="saveClientField(${r.id}, 'endereco', this.value, this)"><span class="save-flash"></span></td>
+      <td>
+        <select class="edit-input" style="width:150px" onchange="saveClientField(${r.id}, 'status', this.value, this)">
+          ${CLIENT_STATUSES.map(s => `<option value="${s}" ${r.status === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
+        </select>
+        <span class="save-flash"></span>
+      </td>
+      <td><input class="edit-input" style="width:56px" value="${r.total_pedidos ?? ''}" placeholder="0" onblur="saveClientField(${r.id}, 'total_pedidos', this.value, this)"><span class="save-flash"></span></td>
+      <td><input class="edit-input" style="width:84px" value="${r.total_gasto != null ? Number(r.total_gasto).toFixed(2).replace('.', ',') : ''}" placeholder="—" onblur="saveClientField(${r.id}, 'total_gasto', this.value, this)"><span class="save-flash"></span></td>
+      <td class="cat-cell">${fmtDate(r.ultimo_pedido)}</td>
+      <td class="obs-cell"><input class="edit-input obs-input" value="${(r.observacoes||'').replace(/"/g,'&quot;')}" placeholder="—" onblur="saveClientField(${r.id}, 'observacoes', this.value, this)"><span class="save-flash"></span></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function loadClients() {
+  const rows = await sb('central_clientes?select=*&order=collected_at.desc');
+  clientsData = rows;
+  const summaryEl = document.getElementById('clientsSummary');
+  const statusSelect = document.getElementById('clientsStatusFilter');
+  statusSelect.innerHTML = '<option value="">Todos os status</option>' + CLIENT_STATUSES.map(s => `<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('');
+  if (!rows.length) {
+    summaryEl.innerHTML = '';
+    document.getElementById('clientsTable').innerHTML = '<div class="empty">Sem clientes cadastrados na base central ainda. Use "+ Novo cliente" para começar.</div>';
+    return;
+  }
+  const totalGasto = rows.reduce((s, r) => s + Number(r.total_gasto || 0), 0);
+  summaryEl.innerHTML = `
+    <span><b>${rows.length}</b> clientes cadastrados</span>
+    <span><b>${fmtMoney(totalGasto)}</b> em gasto total registrado</span>
+    <span><b>${rows.filter(r => r.migrado_anota_ai).length}</b> já migrados pro Anota Aí</span>
+  `;
+  renderClients();
+  document.getElementById('clientsSearch').addEventListener('input', renderClients);
+  statusSelect.addEventListener('change', renderClients);
+}
+
+document.getElementById('addClientBtn').addEventListener('click', () => {
+  const form = document.getElementById('clientAddForm');
+  const showing = form.style.display !== 'none';
+  form.style.display = showing ? 'none' : 'grid';
+  if (showing) return;
+  form.innerHTML = `
+    <div><label>Nome</label><input id="newClientNome" placeholder="Nome do cliente"></div>
+    <div><label>WhatsApp</label><input id="newClientWhats" placeholder="(82) 9....-...."></div>
+    <div><label>Endereço</label><input id="newClientEndereco" placeholder="Rua, número, bairro"></div>
+    <div><label>Total gasto (opcional)</label><input id="newClientGasto" placeholder="0,00"></div>
+    <div><label>Observações</label><input id="newClientObs" placeholder="Opcional"></div>
+    <div class="form-actions">
+      <button type="button" class="btn-save" onclick="submitNewClient()">Salvar</button>
+      <button type="button" class="btn-cancel" onclick="document.getElementById('clientAddForm').style.display='none'">Cancelar</button>
+    </div>
+  `;
+});
+
+async function submitNewClient() {
+  const nome = document.getElementById('newClientNome').value.trim();
+  const whats = document.getElementById('newClientWhats').value.trim();
+  const endereco = document.getElementById('newClientEndereco').value.trim();
+  const gasto = parseMoneyInput(document.getElementById('newClientGasto').value);
+  const obs = document.getElementById('newClientObs').value.trim();
+  if (!nome) { alert('Informe ao menos o nome do cliente.'); return; }
+  try {
+    await sbInsert('central_clientes', {
+      nome_parcial: nome,
+      nome_completo: nome,
+      whatsapp: whats || null,
+      endereco: endereco || null,
+      total_gasto: gasto,
+      observacoes: obs || null,
+      status: 'ativo'
+    });
+    document.getElementById('clientAddForm').style.display = 'none';
+    await loadClients();
+  } catch (e) {
+    alert('Erro ao salvar cliente: ' + e.message);
+  }
 }
 
 async function loadFinance() {
