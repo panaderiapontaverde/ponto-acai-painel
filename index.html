@@ -138,6 +138,7 @@
   .badge.em_implantacao { background: #fff2d9; color: #a3700c; }
   .badge.logistica { background: #ffe9d9; color: #b85a1a; }
   .badge.pausado { background: #f1eef5; color: #8a7f9a; }
+  .badge.grupo { background: #eaf3fc; color: #2d6fa8; font-weight: 700; cursor: help; }
 
   .catalog-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .catalog-toolbar input, .catalog-toolbar select {
@@ -554,13 +555,26 @@ function renderCatalog() {
 
   if (!filtered.length) { el.innerHTML = '<div class="empty">Nenhum item encontrado com esse filtro.</div>'; return; }
 
+  const groupMembers = {};
+  catalogData.forEach(r => {
+    if (!r.grupo_equivalencia) return;
+    (groupMembers[r.grupo_equivalencia] = groupMembers[r.grupo_equivalencia] || []).push(r);
+  });
+
   el.innerHTML = `<div class="catalog-scroll"><table><thead><tr>
     <th>Categoria</th><th>Produto</th><th>SKU / Tamanho</th><th>Status</th>
     <th>Preço iFood</th><th>Gami</th><th>99Food</th><th>Anota Aí</th><th>Observações</th>
   </tr></thead><tbody>
-    ${filtered.map(r => `<tr class="${r.status === 'Pausado' ? 'row-pausado' : ''}">
+    ${filtered.map(r => {
+      let grupoBadge = '';
+      if (r.grupo_equivalencia) {
+        const others = (groupMembers[r.grupo_equivalencia] || []).filter(o => o !== r);
+        const tip = 'Mesmo produto também cadastrado em: ' + others.map(o => o.categoria + ' — ' + fmtMoney(o.preco_atual)).join(' | ');
+        grupoBadge = `<br><span class="badge grupo" title="${tip.replace(/"/g,'&quot;')}">🔗 mesmo produto em ${others.length} cadastro(s)</span>`;
+      }
+      return `<tr class="${r.status === 'Pausado' ? 'row-pausado' : ''}">
       <td class="cat-cell">${r.categoria}</td>
-      <td>${r.produto}</td>
+      <td>${r.produto}${grupoBadge}</td>
       <td>${r.sku_tamanho || '—'}</td>
       <td><span class="badge ${r.status === 'Pausado' ? 'pausado' : 'ativo'}">${r.status}</span></td>
       <td>${r.preco_atual != null ? fmtMoney(r.preco_atual) : '—'}</td>
@@ -568,7 +582,8 @@ function renderCatalog() {
       <td>${r.preco_99food != null ? fmtMoney(r.preco_99food) : '—'}</td>
       <td>${r.preco_anotaai != null ? fmtMoney(r.preco_anotaai) : '—'}</td>
       <td class="obs-cell">${r.observacoes || ''}</td>
-    </tr>`).join('')}
+    </tr>`;
+    }).join('')}
   </tbody></table></div>`;
 }
 
@@ -584,12 +599,13 @@ async function loadCatalog() {
   const categorias = [...new Set(rows.map(r => r.categoria))];
   catSelect.innerHTML = '<option value="">Todas as categorias</option>' + categorias.map(c => `<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
   const pausados = rows.filter(r => r.status === 'Pausado').length;
-  const duplicados = rows.filter(r => (r.observacoes || '').toUpperCase().includes('DUPLICADO')).length;
+  const emGrupo = rows.filter(r => r.grupo_equivalencia).length;
+  const grupos = new Set(rows.filter(r => r.grupo_equivalencia).map(r => r.grupo_equivalencia)).size;
   summaryEl.innerHTML = `
     <span><b>${rows.length}</b> SKUs catalogados</span>
     <span><b>${categorias.length}</b> categorias</span>
     <span><b>${pausados}</b> pausados</span>
-    <span><b>${duplicados}</b> com cadastro duplicado (revisar)</span>
+    <span><b>${emGrupo}</b> SKUs em <b>${grupos}</b> grupos de "mesmo produto" (útil pra alteração de preço em massa)</span>
   `;
   renderCatalog();
   document.getElementById('catalogSearch').addEventListener('input', renderCatalog);
