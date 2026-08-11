@@ -144,8 +144,8 @@
 
   .footer-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 46px; }
   .status-line { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 6px; }
-  .tabpanel { display: none; animation: fadeIn 0.25s ease; }
-  .tabpanel.active { display: block; }
+  .tabpanel { max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+  .tabpanel.active { max-height: none; opacity: 1; overflow: visible; pointer-events: auto; animation: fadeIn 0.25s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
