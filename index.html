@@ -440,8 +440,25 @@
 
   <div class="tabpanel" id="tab-social">
     <section>
-      <h2>Redes sociais</h2>
+      <h2>Instagram</h2>
       <div id="socialCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Conteúdo (últimos 30 dias)</h2>
+      <div id="socialContentMix" class="grid small"></div>
+    </section>
+    <section>
+      <h2>Seguidores ao longo do tempo</h2>
+      <div class="chart-wrap short"><canvas id="socialChart"></canvas></div>
+    </section>
+    <section>
+      <h2>Top posts</h2>
+      <div id="socialTopPosts"></div>
+    </section>
+    <section>
+      <h2>Meta Ads — ponto do açaí delivery</h2>
+      <div id="adsCards" class="grid small"></div>
+      <div id="adsCampaignsTable"></div>
     </section>
   </div>
 
@@ -630,15 +647,124 @@ async function loadReviews() {
 }
 
 async function loadSocial() {
-  const rows = await sb('social_snapshots?select=platform,followers,reach,posts_count&order=collected_at.desc&limit=1');
-  const el = document.getElementById('socialCards');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de redes sociais ainda.</div>'; return; }
+  const rows = await sb('social_snapshots?select=*&order=collected_at.desc&limit=30');
+  const cardsEl = document.getElementById('socialCards');
+  const mixEl = document.getElementById('socialContentMix');
+  const topEl = document.getElementById('socialTopPosts');
+  if (!rows.length) {
+    if (cardsEl) cardsEl.innerHTML = '<div class="empty">Sem dados de redes sociais ainda.</div>';
+    if (mixEl) mixEl.innerHTML = '';
+    if (topEl) topEl.innerHTML = '';
+    return rows;
+  }
   const r = rows[0];
-  el.innerHTML = `
-    <div class="card"><h3>${r.platform}</h3><div class="value">${r.followers ?? '—'}</div><div class="sub">seguidores</div></div>
-    <div class="card"><h3>Alcance</h3><div class="value">${r.reach ?? '—'}</div></div>
-    <div class="card"><h3>Posts no período</h3><div class="value">${r.posts_count ?? '—'}</div></div>
+  const views = r.views ?? r.reach;
+  const fmtN = v => (v ?? 0).toLocaleString('pt-BR');
+  const deltaHtml = (r.followers_delta === null || r.followers_delta === undefined || !isFinite(r.followers_delta) || r.followers_delta === 0)
+    ? ''
+    : `<div class="sub">${r.followers_delta > 0 ? '+' : ''}${r.followers_delta} desde a última coleta</div>`;
+  if (cardsEl) {
+    cardsEl.innerHTML = `
+      <div class="card"><h3>Seguidores</h3><div class="value">${fmtN(r.followers)}</div>${deltaHtml}</div>
+      <div class="card"><h3>Visualizações (30d)</h3><div class="value">${fmtN(views)}</div></div>
+      <div class="card"><h3>Interações (30d)</h3><div class="value">${fmtN(r.interactions_total)}</div></div>
+      <div class="card"><h3>Contas engajadas</h3><div class="value">${fmtN(r.engaged_accounts)}</div></div>
+      <div class="card"><h3>Visitas ao perfil</h3><div class="value">${fmtN(r.profile_visits)}</div></div>
+      <div class="card"><h3>Cliques no link</h3><div class="value">${fmtN(r.external_link_taps)}</div></div>
+    `;
+  }
+  if (mixEl) {
+    mixEl.innerHTML = `
+      <div class="card"><h3>Reels</h3><div class="value">${r.pct_reels ?? '—'}%</div></div>
+      <div class="card"><h3>Stories</h3><div class="value">${r.pct_stories ?? '—'}%</div></div>
+      <div class="card"><h3>Posts</h3><div class="value">${r.pct_posts ?? '—'}%</div></div>
+      <div class="card"><h3>Total de posts</h3><div class="value">${r.posts_count ?? '—'}</div></div>
+    `;
+  }
+  const chartEl = document.getElementById('socialChart');
+  if (chartEl && window.Chart) {
+    const hist = rows.slice().reverse();
+    if (window.__socialChartInstance) window.__socialChartInstance.destroy();
+    window.__socialChartInstance = new Chart(chartEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: hist.map(h => new Date(h.collected_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })),
+        datasets: [{
+          label: 'Seguidores',
+          data: hist.map(h => h.followers),
+          borderColor: '#6d28d9',
+          backgroundColor: 'rgba(109,40,217,.12)',
+          tension: 0.35,
+          fill: true
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#f0eaf7' } }, x: { grid: { display: false } } } }
+    });
+  }
+  if (topEl) {
+    const posts = await sb('social_top_posts?select=*&order=snapshot_date.desc,rank.asc&limit=20');
+    const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+    if (!posts.length) {
+      topEl.innerHTML = '<div class="empty">Sem posts coletados ainda.</div>';
+    } else {
+      const latestDate = posts[0].snapshot_date;
+      const latest = posts.filter(p => p.snapshot_date === latestDate);
+      const views5 = latest.filter(p => p.metric === 'views').sort((a, b) => a.rank - b.rank);
+      const inter5 = latest.filter(p => p.metric === 'interactions').sort((a, b) => a.rank - b.rank);
+      topEl.innerHTML = `
+        <div class="grid two">
+          <div>
+            <h3 style="margin:0 0 8px;font-size:13px;color:var(--ink-2)">Mais visualizados</h3>
+            <table><thead><tr><th>#</th><th>Data</th><th>Visualizações</th></tr></thead><tbody>
+            ${views5.map(p => `<tr><td>${p.rank}</td><td>${fmtDate(p.post_date)}</td><td>${fmtN(p.value)}</td></tr>`).join('')}
+            </tbody></table>
+          </div>
+          <div>
+            <h3 style="margin:0 0 8px;font-size:13px;color:var(--ink-2)">Mais interações</h3>
+            <table><thead><tr><th>#</th><th>Data</th><th>Interações</th></tr></thead><tbody>
+            ${inter5.map(p => `<tr><td>${p.rank}</td><td>${fmtDate(p.post_date)}</td><td>${fmtN(p.value)}</td></tr>`).join('')}
+            </tbody></table>
+          </div>
+        </div>
+      `;
+    }
+  }
+  return rows;
+}
+
+async function loadAds() {
+  const adsEl = document.getElementById('adsCards');
+  const campEl = document.getElementById('adsCampaignsTable');
+  if (!adsEl) return;
+  const fmtN = v => (v ?? 0).toLocaleString('pt-BR');
+  const [accRows, campRows] = await Promise.all([
+    sb('ads_snapshots?select=*&order=collected_at.desc&limit=1'),
+    sb('ad_campaigns_snapshots?select=*&order=collected_at.desc&limit=20')
+  ]);
+  if (!accRows.length) {
+    adsEl.innerHTML = '<div class="empty">Sem dados de anúncios ainda.</div>';
+    if (campEl) campEl.innerHTML = '';
+    return;
+  }
+  const a = accRows[0];
+  adsEl.innerHTML = `
+    <div class="card"><h3>Campanhas ativas</h3><div class="value">${a.active_campaigns ?? '—'}</div></div>
+    <div class="card"><h3>Gasto no período</h3><div class="value">${fmtMoney(a.amount_spent_period)}</div></div>
+    <div class="card"><h3>Saldo disponível</h3><div class="value">${fmtMoney(a.balance)}</div></div>
   `;
+  if (campEl) {
+    if (!campRows.length) {
+      campEl.innerHTML = '<div class="empty">Sem campanhas coletadas ainda.</div>';
+    } else {
+      const latestPeriod = campRows[0].period_end;
+      const latest = campRows.filter(c => c.period_end === latestPeriod);
+      campEl.innerHTML = `
+        <table><thead><tr><th>Campanha</th><th>Resultados</th><th>Custo/resultado</th><th>Valor gasto</th><th>Alcance</th><th>CPM</th></tr></thead><tbody>
+        ${latest.map(c => `<tr><td>${c.campaign_name}</td><td>${fmtN(c.results)}</td><td>${fmtMoney(c.cost_per_result)}</td><td>${fmtMoney(c.amount_spent)}</td><td>${fmtN(c.reach)}</td><td>${fmtMoney(c.cpm)}</td></tr>`).join('')}
+        </tbody></table>
+      `;
+    }
+  }
 }
 
 async function sbInsert(path, body) {
@@ -1060,13 +1186,14 @@ async function loadHeroKpis({ finance, sales, funnel, reviews, marketing }) {
 async function loadAll() {
   document.getElementById('statusLine').textContent = 'Atualizando...';
   try {
-    const [ , , sales, , reviews, , , finance, , , , , marketing ] = await Promise.all([
+    const [ , , sales, , reviews, , , , finance, , , , , marketing ] = await Promise.all([
       loadChannels(),
       loadRevenue(),
       loadSales(),
       loadFunnel(),
       loadReviews(),
       loadSocial(),
+      loadAds(),
       loadClients(),
       loadFinance(),
       loadOperation(),
