@@ -184,6 +184,24 @@
   .tabpanel { max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
   .tabpanel.active { max-height: none; opacity: 1; overflow: visible; pointer-events: auto; animation: fadeIn 0.25s ease; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  main section > div { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body { -webkit-text-size-adjust: 100%; }
+  @media (max-width: 640px) {
+    header { padding: 20px 16px 18px; }
+    header h1 { font-size: 18px; }
+    header p { font-size: 11.5px; }
+    .hero-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
+    .hero-kpi { padding: 10px 12px; }
+    .hero-kpi .num { font-size: 17px; }
+    nav.tabs { padding: 10px 12px 8px; gap: 6px; }
+    nav.tabs button { padding: 7px 12px; font-size: 12px; }
+    main { padding: 8px 12px 50px; }
+    th, td { padding: 9px 10px; font-size: 12px; }
+    .grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+    .card { padding: 12px; }
+    input, select, textarea { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -245,6 +263,10 @@
     <section>
       <h2>Faturamento do mês</h2>
       <div id="financeCards" class="grid"></div>
+    </section>
+    <section>
+      <h2>Projeção do mês</h2>
+      <div id="financeProjection" class="grid"></div>
     </section>
     <section>
       <h2>Repasses</h2>
@@ -677,9 +699,11 @@ async function loadFinance() {
   const rows = await sb('financial_snapshots?select=*,channels(name)&order=period_month.desc&limit=1');
   const cardsEl = document.getElementById('financeCards');
   const extraEl = document.getElementById('financeExtra');
+  const projEl = document.getElementById('financeProjection');
   if (!rows.length) {
     cardsEl.innerHTML = '<div class="empty">Sem dados financeiros ainda.</div>';
     extraEl.innerHTML = '';
+    if (projEl) projEl.innerHTML = '';
     return rows;
   }
   const r = rows[0];
@@ -697,6 +721,24 @@ async function loadFinance() {
     <div class="card"><h3>A receber</h3><div class="value">${fmtMoney(r.receivable_value)}</div></div>
     <div class="card"><h3>Próximo pagamento</h3><div class="value" style="font-size:16px">${fmtDate(r.next_payment_date)}</div></div>
   `;
+  if (projEl) {
+    const monthRows = await sb('monthly_revenue?select=month,total_value,is_closed&order=month.desc&limit=2');
+    const curMonthStr = r.period_month.slice(0,7);
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const dayOfMonth = today.getDate();
+    const dailyAvg = r.sales_value / dayOfMonth;
+    const projection = dailyAvg * daysInMonth;
+    const lastMonthRow = monthRows.find(m => m.month.slice(0,7) !== curMonthStr);
+    const varProj = (lastMonthRow && lastMonthRow.total_value) ? ((projection - lastMonthRow.total_value) / lastMonthRow.total_value) * 100 : null;
+    const varHtml = (varProj == null || !isFinite(varProj)) ? '<span class="var-muted">—</span>' : `<span class="${varProj >= 0 ? 'var-up' : 'var-down'}">${varProj >= 0 ? '+' : ''}${varProj.toFixed(1)}%</span>`;
+    projEl.innerHTML = `
+      <div class="card"><h3>Média diária (${dayOfMonth} dia${dayOfMonth > 1 ? 's' : ''})</h3><div class="value">${fmtMoney(dailyAvg)}</div></div>
+      <div class="card"><h3>Projeção do mês</h3><div class="value">${fmtMoney(projection)}</div><div class="sub">com base na média diária</div></div>
+      <div class="card"><h3>Mês passado</h3><div class="value">${lastMonthRow ? fmtMoney(lastMonthRow.total_value) : '—'}</div>${lastMonthRow ? `<div class="sub">${new Date(lastMonthRow.month + 'T00:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div>` : ''}</div>
+      <div class="card"><h3>Vs. mês passado (projeção)</h3><div class="value">${varHtml}</div></div>
+    `;
+  }
   return rows;
 }
 
