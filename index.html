@@ -201,6 +201,17 @@
   .badge.grupo { background: #dbeafe; color: #1d4ed8; font-weight: 700; cursor: help; }
   .badge.tag-daily { background: #dcfce7; color: var(--green); font-size: 10px; cursor: help; }
   .badge.tag-window { background: #f1eef6; color: var(--muted); font-size: 10px; cursor: help; }
+  .updated-at { font-size: 11px; color: var(--muted); margin: -8px 0 14px; }
+  .issue-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+  .issue-card.resolved { opacity: .55; }
+  .issue-main { flex: 1; }
+  .issue-desc { font-size: 13.5px; margin-bottom: 4px; }
+  .issue-meta { font-size: 11.5px; color: var(--muted); }
+  .badge.sev-error { background: #fee2e2; color: var(--red); }
+  .badge.sev-warning { background: #fef3c7; color: #92400e; }
+  .badge.sev-info { background: #dbeafe; color: #1d4ed8; }
+  .btn-resolve { background: var(--bg); border: 1px solid var(--border); color: var(--ink-2); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .btn-resolve:hover { border-color: var(--muted); }
   .card .badge.tag-daily, .card .badge.tag-window { margin-top: 6px; }
 
   .var-up { color: var(--green); font-weight: 700; background: rgba(5,150,105,.09); padding: 2px 7px; border-radius: 7px; font-size: 12px; }
@@ -315,11 +326,13 @@
   <button data-tab="marketing">Marketing</button>
   <button data-tab="logistica">Logística</button>
   <button data-tab="social">Redes sociais</button>
+  <button data-tab="problemas">Relatar problemas</button>
 </nav>
 
 <main>
 
   <div class="tabpanel active" id="tab-visao">
+    <div class="updated-at" id="updatedVisao"></div>
     <section>
       <h2>Comparativo por canal (último dado de cada um)</h2>
       <div id="channelComparison" class="grid"><div class="empty">Carregando...</div></div>
@@ -347,6 +360,7 @@
   </div>
 
   <div class="tabpanel" id="tab-financeiro">
+    <div class="updated-at" id="updatedFinanceiro"></div>
     <section>
       <h2>Faturamento do mês</h2>
       <div id="financeCards" class="grid"></div>
@@ -362,6 +376,7 @@
   </div>
 
   <div class="tabpanel" id="tab-operacao">
+    <div class="updated-at" id="updatedOperacao"></div>
     <section>
       <h2>Operação (últimos 7 dias)</h2>
       <div id="operationCards" class="grid"></div>
@@ -373,6 +388,7 @@
   </div>
 
   <div class="tabpanel" id="tab-cardapio">
+    <div class="updated-at" id="updatedCardapio"></div>
     <section>
       <h2>Funil de conversão (últ. 7 dias)</h2>
       <div class="chart-wrap short"><canvas id="funnelChart"></canvas></div>
@@ -401,6 +417,7 @@
   </div>
 
   <div class="tabpanel" id="tab-clientes">
+    <div class="updated-at" id="updatedClientes"></div>
     <section>
       <h2>Segmentação de clientes</h2>
       <div class="grid two">
@@ -424,6 +441,7 @@
   </div>
 
   <div class="tabpanel" id="tab-marketing">
+    <div class="updated-at" id="updatedMarketing"></div>
     <section>
       <h2>Resumo de promoções</h2>
       <div id="marketingCards" class="grid"></div>
@@ -439,6 +457,7 @@
   </div>
 
   <div class="tabpanel" id="tab-logistica">
+    <div class="updated-at" id="updatedLogistica"></div>
     <section>
       <h2>Entregadores terceirizados</h2>
       <p style="font-size:13px;color:var(--muted);margin-top:-8px;">A Gami Delivery não é canal de venda — é quem faz as entregas terceirizadas dos pedidos.</p>
@@ -447,6 +466,7 @@
   </div>
 
   <div class="tabpanel" id="tab-social">
+    <div class="updated-at" id="updatedSocial"></div>
     <section>
       <h2>Instagram</h2>
       <div id="socialCards" class="grid"></div>
@@ -467,6 +487,16 @@
       <h2>Meta Ads — ponto do açaí delivery</h2>
       <div id="adsCards" class="grid small"></div>
       <div id="adsCampaignsTable"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-problemas">
+    <div class="updated-at" id="updatedProblemas"></div>
+    <section>
+      <h2>Problemas relatados</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:-8px;">Registro automático de falhas na coleta/rotina diária (login travado, dado indisponível, erro ao gravar no banco, etc). A rotina automática grava aqui sempre que algo dá errado — revise e marque como resolvido depois de tratar.</p>
+      <div class="grid small" id="issuesSummary"></div>
+      <div id="issuesList"><div class="empty">Carregando...</div></div>
     </section>
   </div>
 
@@ -551,6 +581,15 @@ function badgeClass(status) {
   if (status === 'em_implantacao') return 'em_implantacao';
   return '';
 }
+function setUpdatedAt(tabKey, iso) {
+  const el = document.getElementById('updated' + tabKey);
+  if (!el || !iso) return;
+  if (el.dataset.ts && new Date(el.dataset.ts) >= new Date(iso)) return;
+  el.dataset.ts = iso;
+  const d = new Date(iso);
+  el.innerHTML = '🕐 Última coleta: <b>' + d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) + '</b>';
+}
+
 function sourceTag(sourceStatus, periodStart, periodEnd) {
   const isDaily = periodStart && periodEnd && periodStart === periodEnd;
   const rolante = (sourceStatus || '').toLowerCase().includes('rolante') || (sourceStatus || '').toLowerCase().includes('nao e dado diario');
@@ -578,9 +617,10 @@ async function loadChannels() {
 }
 
 async function loadChannelComparison() {
-  const rows = await sb('sales_snapshots?select=channel_id,period_start,period_end,total_sales,total_value,avg_ticket,source_status,channels(name)&order=period_end.desc,collected_at.desc&limit=80');
+  const rows = await sb('sales_snapshots?select=channel_id,period_start,period_end,total_sales,total_value,avg_ticket,source_status,collected_at,channels(name)&order=period_end.desc,collected_at.desc&limit=80');
   const el = document.getElementById('channelComparison');
   if (!el) return;
+  if (rows.length) setUpdatedAt('Visao', rows.reduce((max, r) => (!max || new Date(r.collected_at) > new Date(max)) ? r.collected_at : max, null));
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de vendas por canal ainda.</div>'; return; }
   const byChannel = {};
   rows.forEach(r => {
@@ -634,9 +674,10 @@ async function loadRevenue() {
 }
 
 async function loadSales() {
-  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,source_status,channels(name)&order=period_end.desc&limit=40');
+  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,source_status,collected_at,channels(name)&order=period_end.desc&limit=40');
   const todayStr = new Date().toISOString().slice(0,10);
   const closed = rows.filter(r => r.period_end < todayStr);
+  if (closed.length) setUpdatedAt('Visao', closed.reduce((max, r) => (!max || new Date(r.collected_at) > new Date(max)) ? r.collected_at : max, null));
   const el = document.getElementById('salesTable');
   if (!closed.length) { el.innerHTML = '<div class="empty">Sem vendas de períodos fechados ainda.</div>'; return closed; }
   const dur = r => Math.round((new Date(r.period_end) - new Date(r.period_start)) / 86400000) + 1;
@@ -655,10 +696,11 @@ async function loadSales() {
 }
 
 async function loadFunnel() {
-  const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,channels(name)&channel_id=eq.1&order=period_end.desc&limit=1');
+  const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,collected_at,channels(name)&channel_id=eq.1&order=period_end.desc&limit=1');
   const wrap = document.getElementById('funnelChart').parentElement;
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
   const r = rows[0];
+  setUpdatedAt('Cardapio', r.collected_at);
   const conv = r.visits ? ((r.completed / r.visits) * 100).toFixed(2) : '—';
   const ctx = document.getElementById('funnelChart').getContext('2d');
   if (funnelChart) funnelChart.destroy();
@@ -706,6 +748,7 @@ async function loadSocial() {
     return rows;
   }
   const r = rows[0];
+  setUpdatedAt('Social', r.collected_at);
   const views = r.views ?? r.reach;
   const fmtN = v => (v ?? 0).toLocaleString('pt-BR');
   const deltaHtml = (r.followers_delta === null || r.followers_delta === undefined || !isFinite(r.followers_delta) || r.followers_delta === 0)
@@ -795,6 +838,7 @@ async function loadAds() {
     return;
   }
   const a = accRows[0];
+  setUpdatedAt('Social', a.collected_at);
   const lowBalance = a.balance != null && Number(a.balance) < 50;
   adsEl.innerHTML = `
     <div class="card"><h3>Campanhas ativas</h3><div class="value">${a.active_campaigns ?? '—'}</div></div>
@@ -888,6 +932,7 @@ function renderClients() {
 async function loadClients() {
   const rows = await sb('central_clientes?select=*&order=collected_at.desc');
   clientsData = rows;
+  if (rows.length) setUpdatedAt('Clientes', rows[0].collected_at);
   const summaryEl = document.getElementById('clientsSummary');
   const statusSelect = document.getElementById('clientsStatusFilter');
   statusSelect.innerHTML = '<option value="">Todos os status</option>' + CLIENT_STATUSES.map(s => `<option value="${s}">${s.replace(/_/g,' ')}</option>`).join('');
@@ -961,6 +1006,7 @@ async function loadFinance() {
     return rows;
   }
   const r = rows[0];
+  setUpdatedAt('Financeiro', r.collected_at);
   const repassePct = r.sales_value ? ((r.net_revenue / r.sales_value) * 100).toFixed(1) : '—';
   cardsEl.innerHTML = `
     <div class="card"><h3>Mês</h3><div class="value" style="font-size:16px">${new Date(r.period_month + 'T00:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div></div>
@@ -1001,6 +1047,7 @@ async function loadOperation() {
   const el = document.getElementById('operationCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de operação ainda.</div>'; return; }
   const r = rows[0];
+  setUpdatedAt('Operacao', r.collected_at);
   const tagHtml = sourceTag(r.source_status, r.period_start, r.period_end);
   el.innerHTML = `
     <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div>${tagHtml}</div>
@@ -1016,6 +1063,7 @@ async function loadNegotiations() {
   const el = document.getElementById('negotiationCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de negociações ainda.</div>'; return; }
   const r = rows[0];
+  setUpdatedAt('Operacao', r.collected_at);
   el.innerHTML = `
     <div class="card"><h3>Pedidos com problema</h3><div class="value">${r.problem_orders ?? '—'}</div></div>
     <div class="card"><h3>Taxa de resposta da loja</h3><div class="value pos">${fmtPct(r.store_response_rate)}</div></div>
@@ -1025,9 +1073,10 @@ async function loadNegotiations() {
 }
 
 async function loadTopItems() {
-  const rows = await sb('top_items?select=rank,item_name,visits,sales,revenue&channel_id=eq.1&order=snapshot_date.desc,rank.asc&limit=10');
+  const rows = await sb('top_items?select=rank,item_name,visits,sales,revenue,collected_at&channel_id=eq.1&order=snapshot_date.desc,rank.asc&limit=10');
   const el = document.getElementById('topItemsTable');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem itens coletados ainda.</div>'; return; }
+  setUpdatedAt('Cardapio', rows[0].collected_at);
   el.innerHTML = `<table><thead><tr><th>#</th><th>Item</th><th>Visitas</th><th>Vendas</th><th>Faturamento</th></tr></thead><tbody>
     ${rows.map(r => `<tr><td>${r.rank}º</td><td>${r.item_name}</td><td>${r.visits ?? '—'}</td><td>${r.sales ?? '—'}</td><td>${fmtMoney(r.revenue)}</td></tr>`).join('')}
   </tbody></table>`;
@@ -1127,6 +1176,7 @@ async function loadSegments() {
     return;
   }
   const r = rows[0];
+  setUpdatedAt('Clientes', r.collected_at);
   el.innerHTML = `
     <div class="card"><h3>Novos</h3><div class="value pos">${r.novos ?? '—'}</div></div>
     <div class="card"><h3>Frequentes</h3><div class="value pos">${r.frequentes ?? '—'}</div></div>
@@ -1157,6 +1207,7 @@ async function loadMarketing() {
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de marketing ainda.</div>'; }
   else {
     const r = rows[0];
+    setUpdatedAt('Marketing', r.collected_at);
     el.innerHTML = `
       <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
       <div class="card"><h3>Pedidos com promoção</h3><div class="value">${r.promo_orders ?? '—'}</div></div>
@@ -1215,6 +1266,7 @@ async function loadLogistics() {
     return;
   }
   const r = rows[0];
+  setUpdatedAt('Logistica', r.collected_at);
   const divergencia = (r.deliveries_count != null && r.ifood_deliveries_count != null && r.deliveries_count !== r.ifood_deliveries_count);
   el.innerHTML = `
     <div class="card"><h3>Provedor</h3><div class="value" style="font-size:16px">${providerName}</div></div>
@@ -1223,6 +1275,56 @@ async function loadLogistics() {
     <div class="card"><h3>Custo total</h3><div class="value neg">${fmtMoney(r.total_cost)}</div></div>
     <div class="card"><h3>Custo por entrega</h3><div class="value">${fmtMoney(r.cost_per_delivery)}</div></div>
   `;
+}
+
+async function loadIssues() {
+  const rows = await sb('collection_issues?select=*&order=created_at.desc&limit=100');
+  const listEl = document.getElementById('issuesList');
+  const summaryEl = document.getElementById('issuesSummary');
+  if (!listEl) return;
+  if (!rows.length) {
+    listEl.innerHTML = '<div class="empty">Nenhum problema relatado até agora. 🎉</div>';
+    if (summaryEl) summaryEl.innerHTML = '';
+    return;
+  }
+  setUpdatedAt('Problemas', rows[0].created_at);
+  const open = rows.filter(r => !r.resolved);
+  const resolved = rows.filter(r => r.resolved);
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="card"><h3>Em aberto</h3><div class="value ${open.length ? 'neg' : 'pos'}">${open.length}</div></div>
+      <div class="card"><h3>Resolvidos</h3><div class="value pos">${resolved.length}</div></div>
+      <div class="card"><h3>Total registrado</h3><div class="value">${rows.length}</div></div>
+    `;
+  }
+  const sevLabel = s => s === 'error' ? '🔴 erro' : s === 'info' ? '🔵 info' : '🟠 atenção';
+  const sevBadge = s => `<span class="badge sev-${s || 'warning'}">${sevLabel(s)}</span>`;
+  const sorted = [...rows].sort((a, b) => {
+    if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+  listEl.innerHTML = sorted.map(r => `
+    <div class="issue-card ${r.resolved ? 'resolved' : ''}">
+      <div class="issue-main">
+        <div class="issue-desc">${sevBadge(r.severity)} ${(r.description || '').replace(/</g,'&lt;')}</div>
+        <div class="issue-meta">Fonte: ${r.source || '—'} · ${new Date(r.created_at).toLocaleString('pt-BR')}${r.resolved && r.resolved_at ? ' · resolvido em ' + new Date(r.resolved_at).toLocaleString('pt-BR') : ''}</div>
+      </div>
+      ${r.resolved ? '' : `<button class="btn-resolve" onclick="resolveIssue(${r.id}, this)">Marcar resolvido</button>`}
+    </div>
+  `).join('');
+}
+
+async function resolveIssue(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  try {
+    await sbPatch(`collection_issues?id=eq.${id}`, { resolved: true, resolved_at: new Date().toISOString() });
+    await loadIssues();
+  } catch (e) {
+    alert('Erro ao marcar como resolvido: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Marcar resolvido';
+  }
 }
 
 async function loadHeroKpis({ finance, sales, funnel, reviews, marketing }) {
@@ -1256,7 +1358,8 @@ async function loadAll() {
       loadMarketing(),
       loadLogistics(),
       loadCatalog(),
-      loadChannelComparison()
+      loadChannelComparison(),
+      loadIssues()
     ]);
     await loadHeroKpis({ finance, sales, reviews, marketing });
     document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
