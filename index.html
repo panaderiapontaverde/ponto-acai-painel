@@ -199,6 +199,9 @@
   .badge.logistica { background: #ffe4d5; color: #c2410c; }
   .badge.pausado { background: #f1eef6; color: var(--muted); }
   .badge.grupo { background: #dbeafe; color: #1d4ed8; font-weight: 700; cursor: help; }
+  .badge.tag-daily { background: #dcfce7; color: var(--green); font-size: 10px; cursor: help; }
+  .badge.tag-window { background: #f1eef6; color: var(--muted); font-size: 10px; cursor: help; }
+  .card .badge.tag-daily, .card .badge.tag-window { margin-top: 6px; }
 
   .var-up { color: var(--green); font-weight: 700; background: rgba(5,150,105,.09); padding: 2px 7px; border-radius: 7px; font-size: 12px; }
   .var-down { color: var(--red); font-weight: 700; background: rgba(220,38,38,.09); padding: 2px 7px; border-radius: 7px; font-size: 12px; }
@@ -297,7 +300,7 @@
   <div class="hero-kpis" id="heroKpis">
     <div class="hero-kpi"><div class="label">Faturamento do mês</div><div class="num" id="kpiFaturamento">—</div></div>
     
-    <div class="hero-kpi"><div class="label">Ticket médio (7d)</div><div class="num" id="kpiTicket">—</div></div>
+    <div class="hero-kpi"><div class="label" id="kpiTicketLabel">Ticket médio</div><div class="num" id="kpiTicket">—</div></div>
     <div class="hero-kpi"><div class="label">Nota da loja</div><div class="num" id="kpiNota">—</div></div>
     <div class="hero-kpi"><div class="label">ROI campanhas</div><div class="num" id="kpiRoi">—</div></div>
   </div>
@@ -317,6 +320,11 @@
 <main>
 
   <div class="tabpanel active" id="tab-visao">
+    <section>
+      <h2>Comparativo por canal (último dado de cada um)</h2>
+      <div id="channelComparison" class="grid"><div class="empty">Carregando...</div></div>
+    </section>
+
     <section>
       <h2>Canais de venda</h2>
       <div id="channelsTable"><div class="empty">Carregando...</div></div>
@@ -543,6 +551,20 @@ function badgeClass(status) {
   if (status === 'em_implantacao') return 'em_implantacao';
   return '';
 }
+function sourceTag(sourceStatus, periodStart, periodEnd) {
+  const isDaily = periodStart && periodEnd && periodStart === periodEnd;
+  const rolante = (sourceStatus || '').toLowerCase().includes('rolante') || (sourceStatus || '').toLowerCase().includes('nao e dado diario');
+  if (isDaily && !rolante) return '<span class="badge tag-daily" title="Dado de um único dia">● diário</span>';
+  if (rolante) {
+    let dur = '';
+    if (periodStart && periodEnd) {
+      const d = Math.round((new Date(periodEnd) - new Date(periodStart)) / 86400000) + 1;
+      dur = ` ${d}d`;
+    }
+    return `<span class="badge tag-window" title="${(sourceStatus||'').replace(/"/g,'&quot;')}">◔ período${dur}</span>`;
+  }
+  return '';
+}
 
 async function loadChannels() {
   const rows = await sb('channels?select=id,slug,name,status,type&order=id.asc');
@@ -553,6 +575,31 @@ async function loadChannels() {
     ${vendaRows.map(r => `<tr><td>${r.name}</td><td>${r.slug}</td><td><span class="badge ${badgeClass(r.status)}">${r.status}</span></td></tr>`).join('')}
   </tbody></table>`;
   return rows;
+}
+
+async function loadChannelComparison() {
+  const rows = await sb('sales_snapshots?select=channel_id,period_start,period_end,total_sales,total_value,avg_ticket,source_status,channels(name)&order=period_end.desc,collected_at.desc&limit=80');
+  const el = document.getElementById('channelComparison');
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de vendas por canal ainda.</div>'; return; }
+  const byChannel = {};
+  rows.forEach(r => {
+    const cid = r.channel_id;
+    const isDaily = r.period_start === r.period_end;
+    if (!byChannel[cid]) { byChannel[cid] = r; return; }
+    const cur = byChannel[cid];
+    const curIsDaily = cur.period_start === cur.period_end;
+    if (isDaily && !curIsDaily) byChannel[cid] = r;
+  });
+  const channels = Object.values(byChannel).sort((a, b) => (a.channel_id || 0) - (b.channel_id || 0));
+  el.innerHTML = channels.map(r => `
+    <div class="card">
+      <h3>${r.channels ? r.channels.name : 'Canal ' + r.channel_id}</h3>
+      <div class="value">${fmtMoney(r.total_value)}</div>
+      <div class="sub">${r.total_sales} pedido${r.total_sales === 1 ? '' : 's'} · ticket ${fmtMoney(r.avg_ticket)}</div>
+      ${sourceTag(r.source_status, r.period_start, r.period_end)}
+    </div>
+  `).join('');
 }
 
 async function loadRevenue() {
@@ -587,7 +634,7 @@ async function loadRevenue() {
 }
 
 async function loadSales() {
-  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,channels(name)&order=period_end.desc&limit=40');
+  const rows = await sb('sales_snapshots?select=period_start,period_end,total_sales,total_value,avg_ticket,new_customers,source_status,channels(name)&order=period_end.desc&limit=40');
   const todayStr = new Date().toISOString().slice(0,10);
   const closed = rows.filter(r => r.period_end < todayStr);
   const el = document.getElementById('salesTable');
@@ -601,13 +648,14 @@ async function loadSales() {
     return { r, varValor: pct(r.total_value, prev ? prev.total_value : null), varPedidos: pct(r.total_sales, prev ? prev.total_sales : null) };
   });
   el.innerHTML = `<table><thead><tr><th>Canal</th><th>Período</th><th>Pedidos</th><th>Valor</th><th>Ticket médio</th><th>Novos clientes</th><th>Vs. período anterior</th></tr></thead><tbody>
-    ${withVar.map(({r, varValor, varPedidos}) => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td><td>${r.new_customers ?? '—'}</td><td>${varHtml(varValor)} valor · ${varHtml(varPedidos)} pedidos</td></tr>`).join('')}
-  </tbody></table>`;
+    ${withVar.map(({r, varValor, varPedidos}) => `<tr><td>${r.channels ? r.channels.name : '—'}</td><td>${fmtDate(r.period_start)} a ${fmtDate(r.period_end)} ${sourceTag(r.source_status, r.period_start, r.period_end)}</td><td>${r.total_sales}</td><td>${fmtMoney(r.total_value)}</td><td>${fmtMoney(r.avg_ticket)}</td><td>${r.new_customers ?? '—'}</td><td>${varHtml(varValor)} valor · ${varHtml(varPedidos)} pedidos</td></tr>`).join('')}
+  </tbody></table>
+  <div class="edit-hint">🟢 diário = dado de um único dia. ◔ período = janela de vários dias (ex. últimos 7d) — não some com valores diários, compare só com janelas do mesmo tamanho.</div>`;
   return closed;
 }
 
 async function loadFunnel() {
-  const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,channels(name)&order=period_end.desc&limit=1');
+  const rows = await sb('menu_funnel_snapshots?select=period_start,period_end,visits,views,cart,review,completed,channels(name)&channel_id=eq.1&order=period_end.desc&limit=1');
   const wrap = document.getElementById('funnelChart').parentElement;
   if (!rows.length) { wrap.innerHTML = '<div class="empty">Sem dados de funil de cardápio ainda.</div>'; return; }
   const r = rows[0];
@@ -747,10 +795,11 @@ async function loadAds() {
     return;
   }
   const a = accRows[0];
+  const lowBalance = a.balance != null && Number(a.balance) < 50;
   adsEl.innerHTML = `
     <div class="card"><h3>Campanhas ativas</h3><div class="value">${a.active_campaigns ?? '—'}</div></div>
     <div class="card"><h3>Gasto no período</h3><div class="value">${fmtMoney(a.amount_spent_period)}</div></div>
-    <div class="card"><h3>Saldo disponível</h3><div class="value">${fmtMoney(a.balance)}</div></div>
+    <div class="card"><h3>Saldo disponível</h3><div class="value ${lowBalance ? 'neg' : 'pos'}">${fmtMoney(a.balance)}</div>${lowBalance ? '<div class="sub" style="color:var(--red);font-weight:700;">⚠️ abaixo de R$ 50 — risco de pausa nos anúncios</div>' : ''}</div>
   `;
   if (campEl) {
     if (!campRows.length) {
@@ -901,7 +950,7 @@ async function submitNewClient() {
 }
 
 async function loadFinance() {
-  const rows = await sb('financial_snapshots?select=*,channels(name)&order=period_month.desc&limit=1');
+  const rows = await sb('financial_snapshots?select=*,channels(name)&channel_id=eq.1&order=period_month.desc&limit=1');
   const cardsEl = document.getElementById('financeCards');
   const extraEl = document.getElementById('financeExtra');
   const projEl = document.getElementById('financeProjection');
@@ -948,12 +997,13 @@ async function loadFinance() {
 }
 
 async function loadOperation() {
-  const rows = await sb('operation_snapshots?select=*,channels(name)&order=period_end.desc&limit=1');
+  const rows = await sb('operation_snapshots?select=*,channels(name)&channel_id=eq.1&order=period_end.desc&limit=1');
   const el = document.getElementById('operationCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de operação ainda.</div>'; return; }
   const r = rows[0];
+  const tagHtml = sourceTag(r.source_status, r.period_start, r.period_end);
   el.innerHTML = `
-    <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div></div>
+    <div class="card"><h3>Período</h3><div class="value" style="font-size:16px">${fmtDate(r.period_start)} a ${fmtDate(r.period_end)}</div>${tagHtml}</div>
     <div class="card"><h3>Cancelamentos</h3><div class="value ${r.cancel_rate > 2 ? 'neg' : 'pos'}">${fmtPct(r.cancel_rate)}</div></div>
     <div class="card"><h3>Chamados abertos</h3><div class="value ${r.calls_rate > 25 ? 'neg' : ''}">${fmtPct(r.calls_rate)}</div></div>
     <div class="card"><h3>Tempo aberto</h3><div class="value" style="font-size:18px">${r.open_hours ? Number(r.open_hours).toFixed(1) + 'h' : '—'}</div></div>
@@ -962,7 +1012,7 @@ async function loadOperation() {
 }
 
 async function loadNegotiations() {
-  const rows = await sb('negotiation_snapshots?select=*&order=period_end.desc&limit=1');
+  const rows = await sb('negotiation_snapshots?select=*&channel_id=eq.1&order=period_end.desc&limit=1');
   const el = document.getElementById('negotiationCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de negociações ainda.</div>'; return; }
   const r = rows[0];
@@ -975,7 +1025,7 @@ async function loadNegotiations() {
 }
 
 async function loadTopItems() {
-  const rows = await sb('top_items?select=rank,item_name,visits,sales,revenue&order=snapshot_date.desc,rank.asc&limit=10');
+  const rows = await sb('top_items?select=rank,item_name,visits,sales,revenue&channel_id=eq.1&order=snapshot_date.desc,rank.asc&limit=10');
   const el = document.getElementById('topItemsTable');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem itens coletados ainda.</div>'; return; }
   el.innerHTML = `<table><thead><tr><th>#</th><th>Item</th><th>Visitas</th><th>Vendas</th><th>Faturamento</th></tr></thead><tbody>
@@ -1068,7 +1118,7 @@ async function loadCatalog() {
 }
 
 async function loadSegments() {
-  const rows = await sb('customer_segments?select=*&order=compare_to.desc&limit=1');
+  const rows = await sb('customer_segments?select=*&channel_id=eq.1&order=compare_to.desc&limit=1');
   const el = document.getElementById('segmentCards');
   const wrap = document.getElementById('segmentChart') ? document.getElementById('segmentChart').parentElement : null;
   if (!rows.length) {
@@ -1102,7 +1152,7 @@ async function loadSegments() {
 }
 
 async function loadMarketing() {
-  const rows = await sb('marketing_snapshots?select=*&order=period_end.desc&limit=1');
+  const rows = await sb('marketing_snapshots?select=*&channel_id=eq.1&order=period_end.desc&limit=1');
   const el = document.getElementById('marketingCards');
   if (!rows.length) { el.innerHTML = '<div class="empty">Sem dados de marketing ainda.</div>'; }
   else {
@@ -1116,7 +1166,7 @@ async function loadMarketing() {
     `;
   }
 
-  const camps = await sb('promotion_campaigns?select=campaign_name,orders,sales_value,invested,roi&order=orders.desc&limit=20');
+  const camps = await sb('promotion_campaigns?select=campaign_name,orders,sales_value,invested,roi&channel_id=eq.1&order=orders.desc&limit=20');
   const campEl = document.getElementById('campaignsTable');
   const chartWrap = document.getElementById('campaignsChart').parentElement;
   if (!camps.length) {
@@ -1177,8 +1227,11 @@ async function loadLogistics() {
 
 async function loadHeroKpis({ finance, sales, funnel, reviews, marketing }) {
   document.getElementById('kpiFaturamento').textContent = finance && finance.length ? fmtMoney(finance[0].net_revenue) : '—';
-  const weekRow = (sales && sales.find(s => (new Date(s.period_end) - new Date(s.period_start)) >= 86400000 * 5.5)) || (sales && sales[0]);
-  document.getElementById('kpiTicket').textContent = weekRow ? fmtMoney(weekRow.avg_ticket) : '—';
+  const dailyRow = sales && sales.find(s => s.period_start === s.period_end);
+  const ticketRow = dailyRow || (sales && sales[0]);
+  document.getElementById('kpiTicket').textContent = ticketRow ? fmtMoney(ticketRow.avg_ticket) : '—';
+  const dur = ticketRow ? Math.round((new Date(ticketRow.period_end) - new Date(ticketRow.period_start)) / 86400000) + 1 : null;
+  document.getElementById('kpiTicketLabel').textContent = dur ? (dur === 1 ? 'Ticket médio (dia)' : `Ticket médio (${dur}d)`) : 'Ticket médio';
   document.getElementById('kpiNota').textContent = reviews && reviews.length ? reviews[0].store_rating : '—';
   document.getElementById('kpiRoi').textContent = marketing && marketing.length ? ('R$ ' + marketing[0].roi) : '—';
 }
@@ -1202,7 +1255,8 @@ async function loadAll() {
       loadSegments(),
       loadMarketing(),
       loadLogistics(),
-      loadCatalog()
+      loadCatalog(),
+      loadChannelComparison()
     ]);
     await loadHeroKpis({ finance, sales, reviews, marketing });
     document.getElementById('statusLine').textContent = 'Atualizado em ' + new Date().toLocaleString('pt-BR');
