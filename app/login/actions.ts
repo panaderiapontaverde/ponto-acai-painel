@@ -35,8 +35,20 @@ export async function signIn(formData: FormData) {
   });
 
   if (error) {
-    console.error("[signIn] falha de autenticação", error.message);
-    redirect(`/login?erro=invalida&next=${encodeURIComponent(next)}`);
+    // Distinguir senha errada de falha do serviço importa: tratar tudo como
+    // "senha incorreta" já mascarou um erro 500 do GoTrue (usuário criado via
+    // SQL com colunas de token NULL) e mandou a investigação para o lado errado.
+    const isCredentialError =
+      error.code === "invalid_credentials" || error.status === 400;
+
+    console.error(
+      `[signIn] falha de autenticação (status=${error.status ?? "?"} code=${error.code ?? "?"})`,
+      error.message
+    );
+
+    redirect(
+      `/login?erro=${isCredentialError ? "invalida" : "falha"}&next=${encodeURIComponent(next)}`
+    );
   }
 
   redirect(next);

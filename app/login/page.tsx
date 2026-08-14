@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 const ERROS: Record<string, string> = {
   vazio: "Digite a senha do painel.",
   invalida: "Senha incorreta. Tente de novo.",
+  falha:
+    "Não foi a senha: o serviço de autenticação do Supabase respondeu com erro. Tente de novo em instantes; se persistir, confira os logs de Auth no painel do Supabase.",
 };
 
 /**
